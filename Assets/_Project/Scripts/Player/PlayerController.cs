@@ -1,4 +1,5 @@
 using UnityEngine;
+using AdventureGame.UI;
 
 namespace AdventureGame.Player
 {
@@ -12,14 +13,37 @@ namespace AdventureGame.Player
 
         private CharacterController characterController;
         private Vector3 velocity;
+        private bool isMovementLocked = false;
 
         private void Awake()
         {
             characterController = GetComponent<CharacterController>();
         }
 
+        private void OnEnable()
+        {
+            DialogueUIController.OnDialogueStateChanged += HandleDialogueState;
+        }
+
+        private void OnDisable()
+        {
+            DialogueUIController.OnDialogueStateChanged -= HandleDialogueState;
+        }
+
+        private void HandleDialogueState(bool isDialogueOpen)
+        {
+            isMovementLocked = isDialogueOpen;
+            if (isMovementLocked)
+            {
+                velocity = Vector3.zero; // hareket durdurma
+            }
+        }
+
         private void Update()
         {
+            // Diyalog açıkken WASD engellenir
+            if (isMovementLocked) return;
+
             HandleMovement();
         }
 
@@ -32,15 +56,12 @@ namespace AdventureGame.Player
 
             if (direction.magnitude >= 0.1f)
             {
-                // Karakteri hareket yönüne yumuşakça döndür
                 Quaternion targetRotation = Quaternion.LookRotation(direction);
                 transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
 
-                // Yatay hareket
                 characterController.Move(direction * (moveSpeed * Time.deltaTime));
             }
 
-            // Basit yerçekimi kontrolü
             if (characterController.isGrounded && velocity.y < 0)
             {
                 velocity.y = -2f;

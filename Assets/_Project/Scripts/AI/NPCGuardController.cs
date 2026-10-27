@@ -2,6 +2,7 @@ using UnityEngine;
 using AdventureGame.Interfaces;
 using AdventureGame.Interactions;
 using AdventureGame.UI;
+using System.Collections;
 
 namespace AdventureGame.AI
 {
@@ -81,33 +82,45 @@ namespace AdventureGame.AI
                 return;
             }
 
-            // Asenkron olarak Ollama'ya sor (hata yakalama mekanizması)
+            // Asenkron olarak Ollama'ya sor
             var (isSuccess, actionResponse, errorMessage) = await llmService.SendChatPromptAsync(SystemPrompt, playerMessage);
 
             if (!isSuccess)
             {
-                // Sunucu kapalıysa veya JSON bozulduysa oyun çökmez, arayüzde hata gösterilir
                 dialogueUI.ShowError(errorMessage);
                 return;
             }
 
-            // NPC cevabını ekrana yazdır
-            dialogueUI.ShowNPCResponse(actionResponse.reply);
-
-            // Yapılandırılmış JSON çıktısındaki kararı işle
+            // Modelin kararına göre akış
             if (actionResponse.decision == "ALLOW")
             {
                 isGateOpened = true;
                 Debug.Log($"[NPCGuard] İkna başarılı! Gerekçe: {actionResponse.reason}");
 
-                if (finalDoor != null)
+                // Yanıt tamamen bitince devreye girecek callback
+                dialogueUI.ShowNPCResponse(actionResponse.reply, onComplete: () =>
                 {
-                    finalDoor.OpenDoor();
-                }
+                    // 1. Yazı bittiği AN kapıyı aç
+                    if (finalDoor != null)
+                    {
+                        finalDoor.OpenDoor();
+                    }
 
-                // 2 saniye sonra arayüzü kapatıp galibiyet durumuna geçir
-                Invoke(nameof(CloseDialogue), 2.5f);
+                    // 2. Konuşma rahatça okunsun diye 2 saniye bekle ve paneli kapat
+                    StartCoroutine(CloseDialogueWithDelay(2.0f));
+                });
             }
+            else
+            {
+                // İkna olmadıysa yanıt bittiğinde input kısmı otomatik olarak tekrar açılacak
+                dialogueUI.ShowNPCResponse(actionResponse.reply);
+            }
+        }
+
+        private IEnumerator CloseDialogueWithDelay(float delay)
+        {
+            yield return new WaitForSeconds(delay);
+            CloseDialogue();
         }
     }
 }
