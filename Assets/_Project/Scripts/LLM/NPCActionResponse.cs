@@ -8,5 +8,7 @@ namespace AdventureGame.LLM
         public string reply;       // NPC'nin oyuncuya vereceği diyalog cevabı
         public string decision;    // "ALLOW" veya "DENY"
         public string reason;      // Kararın gerekçesi (Analiz ve raporlama için)
+        public string attitude;    // "Şüpheci", "Öfkeli", "Etkilenmiş", "İkna Oldu"
+        public int persuasion_delta;    // Bir cevabın kattığı puan
     }
 }

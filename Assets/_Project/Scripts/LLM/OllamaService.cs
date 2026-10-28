@@ -12,22 +12,18 @@ namespace AdventureGame.LLM
     {
         [Header("Ollama Ayarları")]
         [SerializeField] private string ollamaUrl = "http://localhost:11434/api/chat";
-        [SerializeField] private string modelName = "llama3.2:3b";
-        [SerializeField] private float timeoutSeconds = 30f;
+        [SerializeField] private string modelName = "qwen2.5:7b";
+        [SerializeField] private float timeoutSeconds = 35f;
 
-        public async Task<(bool isSuccess, NPCActionResponse action, string errorMessage)> SendChatPromptAsync(string systemPrompt, string playerMessage)
+        public async Task<(bool isSuccess, NPCActionResponse action, string errorMessage)> SendChatHistoryAsync(List<OllamaChatMessage> conversationHistory)
         {
-            // İstek Gövdesi Hazırlığı
             var requestBody = new OllamaChatRequest
             {
                 model = modelName,
                 stream = false,
                 format = "json",
-                messages = new List<OllamaChatMessage>
-                {
-                    new OllamaChatMessage("system", systemPrompt),
-                    new OllamaChatMessage("user", playerMessage)
-                }
+                messages = conversationHistory,
+                options = new OllamaOptions { temperature = 0.2f }
             };
 
             string jsonPayload = JsonUtility.ToJson(requestBody);
@@ -42,23 +38,20 @@ namespace AdventureGame.LLM
 
                 try
                 {
-                    // Asenkron istek - FPS dondurmayacak
                     var operation = request.SendWebRequest();
                     while (!operation.isDone)
                     {
                         await Task.Yield();
                     }
 
-                    // Ağ ve Bağlantı Hata Kontrolü
                     if (request.result == UnityWebRequest.Result.ConnectionError ||
                         request.result == UnityWebRequest.Result.ProtocolError)
                     {
-                        string err = $"Ollama Sunucu Hatası: {request.error}. Ollama'nın çalıştığından emin olun (localhost:11434).";
+                        string err = $"Ollama Bağlantı Hatası: {request.error}. (Ollama ve qwen2.5:3b açık mı?)";
                         Debug.LogError($"[OllamaService] {err}");
                         return (false, null, err);
                     }
 
-                    // Ollama Yanıtını Çözümleme
                     string responseText = request.downloadHandler.text;
                     OllamaChatResponse chatResponse = JsonUtility.FromJson<OllamaChatResponse>(responseText);
 
@@ -67,7 +60,6 @@ namespace AdventureGame.LLM
                         return (false, null, "Modelden boş yanıt döndü.");
                     }
 
-                    // Modelin Ürettiği JSON'ı NPC Davranışına Çözümleme
                     string innerJson = chatResponse.message.content.Trim();
                     NPCActionResponse parsedAction = JsonUtility.FromJson<NPCActionResponse>(innerJson);
 
@@ -80,8 +72,7 @@ namespace AdventureGame.LLM
                 }
                 catch (Exception ex)
                 {
-                    // Herhangi bir error veya beklenmeyen istisnada oyunun çökmesini engelle
-                    Debug.LogError($"[OllamaService] Beklenmeyen Hata: {ex.Message}");
+                    Debug.LogError($"[OllamaService] İstisna: {ex.Message}");
                     return (false, null, $"Sistem Hatası: {ex.Message}");
                 }
             }
