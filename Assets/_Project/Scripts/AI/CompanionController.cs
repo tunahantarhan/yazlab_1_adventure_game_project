@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using AdventureGame.Interfaces;
+using AdventureGame.UI; // CS0103 hatasını çözen kütüphane
 
 namespace AdventureGame.AI
 {
@@ -9,7 +10,8 @@ namespace AdventureGame.AI
     {
         FollowPlayer,
         MoveToObjective,
-        Interacting
+        Interacting,
+        InDialogue
     }
 
     [RequireComponent(typeof(NavMeshAgent))]
@@ -17,13 +19,13 @@ namespace AdventureGame.AI
     {
         [Header("Referanslar")]
         [SerializeField] private Transform playerTarget;
-        [SerializeField] private MonoBehaviour objectiveInteractable; // Şalter veya başka bir etkileşimli nesne referansı
+        [SerializeField] private MonoBehaviour objectiveInteractable;
 
-        [Header("Mesafe Ayarlari")]
+        [Header("Mesafe Ayarları")]
         [SerializeField] private float followDistance = 3.5f;
         [SerializeField] private float interactDistance = 1.8f;
 
-        [Header("Sensor (Raycast) Ayarlari")]
+        [Header("Sensör (Raycast) Ayarları")]
         [SerializeField] private float sensorRange = 5f;
         [SerializeField] private LayerMask obstacleLayer;
 
@@ -43,6 +45,22 @@ namespace AdventureGame.AI
             {
                 targetInteractable = interactable;
             }
+
+            if (playerTarget == null)
+            {
+                var player = GameObject.FindGameObjectWithTag("Player");
+                if (player != null) playerTarget = player.transform;
+            }
+        }
+
+        private void OnEnable()
+        {
+            DialogueUIController.OnDialogueStateChanged += HandleDialogueState;
+        }
+
+        private void OnDisable()
+        {
+            DialogueUIController.OnDialogueStateChanged -= HandleDialogueState;
         }
 
         private void Start()
@@ -52,17 +70,18 @@ namespace AdventureGame.AI
 
         private void Update()
         {
-            // Raycast sensörü ile önündeki engelleri algılar
             PerformRaycastSensor();
 
-            // Oyuncu 'E' tuşuna basarsa şalteri açma görevi verilir
-            if (Input.GetKeyDown(KeyCode.E) && targetInteractable != null)
+            // Input kutusuna yazı yazılırken 'E' tuşunu tamamen yok say
+            if (DialogueUIController.IsInputFocused) return;
+
+            // Oyuncu serbestken 'E' tuşuna basarsa şaltere yönlendir
+            if (Input.GetKeyDown(KeyCode.E) && targetInteractable != null && currentState != CompanionStateType.InDialogue)
             {
-                Debug.Log("[Companion] Oyuncudan emir alindi: Saltere gidiliyor!");
+                Debug.Log("[Companion] Oyuncudan emir alındı: Şaltere gidiliyor!");
                 SetState(CompanionStateType.MoveToObjective);
             }
 
-            // Durum mantığını günceller
             ExecuteCurrentState();
         }
 
@@ -110,27 +129,55 @@ namespace AdventureGame.AI
                     {
                         targetInteractable.Interact();
                     }
-                    // İşlem bittikten sonra tekrar oyuncuyu takibe dön
                     SetState(CompanionStateType.FollowPlayer);
+                    break;
+
+                case CompanionStateType.InDialogue:
+                    navAgent.ResetPath();
+                    if (playerTarget != null)
+                    {
+                        Vector3 lookDir = (playerTarget.position - transform.position).normalized;
+                        lookDir.y = 0;
+                        if (lookDir.sqrMagnitude > 0.01f)
+                        {
+                            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(lookDir), 3f * Time.deltaTime);
+                        }
+                    }
                     break;
             }
         }
 
-        // Sensör tabanlı gözlem mekanizması (Raycast)
+        private void HandleDialogueState(bool isInDialogue)
+        {
+            if (isInDialogue)
+            {
+                SetState(CompanionStateType.InDialogue);
+            }
+            else
+            {
+                if (currentState != CompanionStateType.MoveToObjective && currentState != CompanionStateType.Interacting)
+                {
+                    SetState(CompanionStateType.FollowPlayer);
+                }
+            }
+        }
+
         private void PerformRaycastSensor()
         {
             Vector3 startPos = transform.position + Vector3.up * 0.5f;
             Vector3 forwardDir = transform.forward;
 
             RaycastHit hit;
-            if (Physics.Raycast(startPos, forwardDir, out hit, sensorRange))
+            bool isBlocked = obstacleLayer.value != 0
+                ? Physics.Raycast(startPos, forwardDir, out hit, sensorRange, obstacleLayer)
+                : Physics.Raycast(startPos, forwardDir, out hit, sensorRange);
+
+            if (isBlocked)
             {
-                // Engel tespit edildiyse kırmızı çizgi
                 Debug.DrawRay(startPos, forwardDir * hit.distance, Color.red);
             }
             else
             {
-                // Önü açıksa yeşil çizgi
                 Debug.DrawRay(startPos, forwardDir * sensorRange, Color.green);
             }
         }

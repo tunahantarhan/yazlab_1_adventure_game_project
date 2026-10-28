@@ -41,8 +41,11 @@ namespace AdventureGame.Player
 
         private void Update()
         {
-            // Diyalog açıkken WASD engellenir
-            if (isMovementLocked) return;
+            // Yalnızca input kutusu odaklı değilse hareket işleme alınır
+            if (DialogueUIController.IsInputFocused)
+            {
+                return;
+            }
 
             HandleMovement();
         }
