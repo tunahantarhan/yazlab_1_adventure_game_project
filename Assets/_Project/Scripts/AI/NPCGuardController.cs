@@ -1,36 +1,56 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using AdventureGame.Interfaces;
 using AdventureGame.Interactions;
+using AdventureGame.LLM;
 using AdventureGame.UI;
-using System.Collections;
 
 namespace AdventureGame.AI
 {
     public class NPCGuardController : MonoBehaviour
     {
         [Header("Bağlantılar")]
-        [SerializeField] private MonoBehaviour llmServiceMono; // OllamaService
+        [SerializeField] private MonoBehaviour llmServiceMono;
         [SerializeField] private DialogueUIController dialogueUI;
-        [SerializeField] private DoorController finalDoor; // Geçişi engelleyen son kapı (varsa)
+        [SerializeField] private DoorController finalDoor;
 
         [Header("Etkileşim Ayarları")]
-        [SerializeField] private float interactionDistance = 4f;
+        [SerializeField] private float interactionDistance = 4.5f;
+        [SerializeField] private float leaveDistanceAfterConvinced = 2.5f;
         [SerializeField] private Transform playerTransform;
+
+        [Header("İkna Mekaniği")]
+        [SerializeField] private int persuasionScore = 20;
+        [SerializeField] private int requiredScoreToPass = 70;
 
         private ILLMService llmService;
         private bool isDialogueActive = false;
         private bool isGateOpened = false;
+        private bool isConvincedSequenceCompleted = false;
+        private Vector3 playerConvincedPosition;
+        private Coroutine autoCloseCoroutine;
 
-        // Sistem promptu net biçimde tanımlı ve JSON üreten yapı
+        private List<OllamaChatMessage> conversationHistory = new List<OllamaChatMessage>();
+
         private const string SystemPrompt =
-            "Sen fantastik bir kalede kilitli kapıyı koruyan sadık ve zeki bir kraliyet muhafızısın. " +
-            "Görevin kapıdan kimseyi geçirmemektir. Ancak oyuncu çok geçerli bir krallık emri sunarsa, zekice bir rüşvet/diplomasi teklif ederse " +
-            "veya seni gerçekten mantıklı bir bahaneyle ikna ederse kapıyı açabilirsin. Boş laflara ve tehditlere pabuç bırakma.\n\n" +
-            "ÇOK ÖNEMLİ KURAL: Yanıtını SADECE ve KESİNLİKLE aşağıdaki geçerli JSON formatında ver, önüne arkasına açıklama ekleme:\n" +
+            "Sen bir krallık kalesinin ana kapısını koruyan kıdemli, şüpheci ve disiplinli bir Baş Muhafızsın.\n" +
+            "GÖREVİN: Kapıdan kimseyi geçirmemek. Ancak oyuncunun diplomasi, mantık veya belgelerle seni ikna etmesine göre karar vereceksin.\n\n" +
+            "KATI KURALLAR:\n" +
+            "1. Sadece kusursuz ve doğal bir TÜRKÇE kullan. Asla İngilizce kelime kullanma.\n" +
+            "2. Bir kale muhafızı gibi ciddi ol; ferman, mühür veya resmi görev sorgula.\n" +
+            "3. Oyuncunun her mesajını değerlendirip 'persuasion_delta' (-25 ile +30 arası) ve 'decision' üret:\n" +
+            "   - Hakaret, tehdit, saçmalık: persuasion_delta: -20, decision: 'DENY'\n" +
+            "   - Sıradan iddialar, zayıf bahaneler: persuasion_delta: -5, decision: 'DENY'\n" +
+            "   - Saygılı diplomasi, mantıklı kurgu: persuasion_delta: +15, decision: 'DENY'\n" +
+            "   - Kraliyet mührü, resmi ferman, acil savaş haberi veya güçlü ikna: persuasion_delta: +30, decision: 'ALLOW'\n\n" +
+            "ZORUNLU JSON ŞEMASI:\n" +
             "{\n" +
-            "  \"reply\": \"Oyuncuya vereceğin Türkçe diyalog cümlesi\",\n" +
-            "  \"decision\": \"ALLOW\" veya \"DENY\",\n" +
-            "  \"reason\": \"Neden izin verdiğinin veya reddettiğinin kısa gerekçesi\"\n" +
+            "  \"reply\": \"Muhafızın oyuncuya söyleyeceği Türkçe diyalog cümlesi\",\n" +
+            "  \"decision\": \"ALLOW veya DENY\",\n" +
+            "  \"persuasion_delta\": 15,\n" +
+            "  \"attitude\": \"Şüpheci veya Etkilenmiş veya İkna Oldu\",\n" +
+            "  \"reason\": \"Kararın gerekçesi\"\n" +
             "}";
 
         private void Awake()
@@ -39,6 +59,14 @@ namespace AdventureGame.AI
             {
                 llmService = service;
             }
+
+            if (playerTransform == null)
+            {
+                var player = GameObject.FindGameObjectWithTag("Player");
+                if (player != null) playerTransform = player.transform;
+            }
+
+            conversationHistory.Add(new OllamaChatMessage("system", SystemPrompt));
         }
 
         private void Update()
@@ -47,29 +75,64 @@ namespace AdventureGame.AI
 
             float distance = Vector3.Distance(transform.position, playerTransform.position);
 
-            // Oyuncu yaklaştığında ve F tuşuna bastığında diyaloğu aç/kapat
-            if (distance <= interactionDistance)
+            if (isDialogueActive)
             {
-                if (Input.GetKeyDown(KeyCode.F) && !isDialogueActive && !isGateOpened)
+                // Yalnızca yazı tamamen bittiğinde ve kapı açıldığında mesafe kontrolü devreye girer
+                if (isConvincedSequenceCompleted)
+                {
+                    float distanceFromConvincedPoint = Vector3.Distance(playerTransform.position, playerConvincedPosition);
+                    if (distanceFromConvincedPoint >= leaveDistanceAfterConvinced || distance > interactionDistance)
+                    {
+                        CloseDialogue();
+                    }
+                    return;
+                }
+
+                if (distance > interactionDistance)
+                {
+                    CloseDialogue();
+                }
+                return;
+            }
+
+            // F tuşu interaksiyonu
+            if (Input.GetKeyDown(KeyCode.F) && distance <= interactionDistance)
+            {
+                if (isGateOpened)
+                {
+                    StartVictoryDialogue();
+                }
+                else
                 {
                     StartDialogue();
                 }
-            }
-            else if (isDialogueActive)
-            {
-                // Oyuncu uzaklaşırsa diyaloğu otomatik kapat
-                CloseDialogue();
             }
         }
 
         private void StartDialogue()
         {
             isDialogueActive = true;
-            dialogueUI.OpenDialogue("Kraliyet Muhafızı", HandlePlayerMessage);
+            isConvincedSequenceCompleted = false;
+            string greeting = "Dur yabancı! Bu kapı sadece krallık izni olanlara açılır. Ne hakla geçmek istersin?";
+            dialogueUI.OpenDialogue("Kraliyet Muhafızı", greeting, HandlePlayerMessage);
+        }
+
+        private void StartVictoryDialogue()
+        {
+            isDialogueActive = true;
+            isConvincedSequenceCompleted = true;
+            playerConvincedPosition = playerTransform.position;
+            dialogueUI.ShowSimpleMessage("Kraliyet Muhafızı", "Görevinde başarılar şanlı maceracı! Yolun açık olsun.");
         }
 
         private void CloseDialogue()
         {
+            if (autoCloseCoroutine != null)
+            {
+                StopCoroutine(autoCloseCoroutine);
+                autoCloseCoroutine = null;
+            }
+
             isDialogueActive = false;
             dialogueUI.CloseDialogue();
         }
@@ -82,8 +145,9 @@ namespace AdventureGame.AI
                 return;
             }
 
-            // Asenkron olarak Ollama'ya sor
-            var (isSuccess, actionResponse, errorMessage) = await llmService.SendChatPromptAsync(SystemPrompt, playerMessage);
+            conversationHistory.Add(new OllamaChatMessage("user", playerMessage));
+
+            var (isSuccess, actionResponse, errorMessage) = await llmService.SendChatHistoryAsync(conversationHistory);
 
             if (!isSuccess)
             {
@@ -91,36 +155,45 @@ namespace AdventureGame.AI
                 return;
             }
 
-            // Modelin kararına göre akış
-            if (actionResponse.decision == "ALLOW")
+            persuasionScore = Mathf.Clamp(persuasionScore + actionResponse.persuasion_delta, 0, 100);
+
+            string deltaSign = actionResponse.persuasion_delta > 0 ? "+" : "";
+            Debug.Log($"[NPCGuard] Karar: {actionResponse.decision} | Puan: {persuasionScore}/100 ({deltaSign}{actionResponse.persuasion_delta}) | Tutum: {actionResponse.attitude} | Sebep: {actionResponse.reason}");
+
+            conversationHistory.Add(new OllamaChatMessage("assistant",
+                $"{{\"reply\":\"{actionResponse.reply}\",\"decision\":\"{actionResponse.decision}\",\"persuasion_delta\":{actionResponse.persuasion_delta}}}"));
+
+            bool isConvinced = actionResponse.decision == "ALLOW" || persuasionScore >= requiredScoreToPass;
+
+            if (isConvinced)
             {
                 isGateOpened = true;
-                Debug.Log($"[NPCGuard] İkna başarılı! Gerekçe: {actionResponse.reason}");
 
-                // Yanıt tamamen bitince devreye girecek callback
-                dialogueUI.ShowNPCResponse(actionResponse.reply, onComplete: () =>
+                // Yanıt tamamen ekranda yazılıp bitince kapı açılır
+                dialogueUI.ShowNPCResponse(actionResponse.reply, true, () =>
                 {
-                    // 1. Yazı bittiği AN kapıyı aç
-                    if (finalDoor != null)
-                    {
-                        finalDoor.OpenDoor();
-                    }
+                    if (finalDoor != null) finalDoor.OpenDoor();
 
-                    // 2. Konuşma rahatça okunsun diye 2 saniye bekle ve paneli kapat
-                    StartCoroutine(CloseDialogueWithDelay(2.0f));
+                    playerConvincedPosition = playerTransform.position;
+                    isConvincedSequenceCompleted = true;
+
+                    if (autoCloseCoroutine != null) StopCoroutine(autoCloseCoroutine);
+                    autoCloseCoroutine = StartCoroutine(AutoCloseAfterDelay(10f));
                 });
             }
             else
             {
-                // İkna olmadıysa yanıt bittiğinde input kısmı otomatik olarak tekrar açılacak
-                dialogueUI.ShowNPCResponse(actionResponse.reply);
+                dialogueUI.ShowNPCResponse(actionResponse.reply, false, null);
             }
         }
 
-        private IEnumerator CloseDialogueWithDelay(float delay)
+        private IEnumerator AutoCloseAfterDelay(float delay)
         {
             yield return new WaitForSeconds(delay);
-            CloseDialogue();
+            if (isDialogueActive)
+            {
+                CloseDialogue();
+            }
         }
     }
 }
