@@ -14,10 +14,16 @@ namespace AdventureGame.Player
         private CharacterController characterController;
         private Vector3 velocity;
         private bool isMovementLocked = false;
+        private Transform cameraTransform;
 
         private void Awake()
         {
             characterController = GetComponent<CharacterController>();
+        }
+
+        private void Start()
+        {
+            if (Camera.main != null) cameraTransform = Camera.main.transform;
         }
 
         private void OnEnable()
@@ -55,7 +61,7 @@ namespace AdventureGame.Player
             float horizontal = Input.GetAxis("Horizontal");
             float vertical = Input.GetAxis("Vertical");
 
-            Vector3 direction = new Vector3(horizontal, 0f, vertical).normalized;
+            Vector3 direction = GetCameraRelativeDirection(horizontal, vertical);
 
             if (direction.magnitude >= 0.1f)
             {
@@ -72,6 +78,22 @@ namespace AdventureGame.Player
 
             velocity.y += gravity * Time.deltaTime;
             characterController.Move(velocity * Time.deltaTime);
+        }
+
+        // W her zaman ekranın yukarısına gider; kamera açısı değişse de kontroller ekrana göre kalır
+        private Vector3 GetCameraRelativeDirection(float horizontal, float vertical)
+        {
+            if (cameraTransform == null)
+            {
+                return new Vector3(horizontal, 0f, vertical).normalized;
+            }
+
+            Vector3 forward = cameraTransform.forward;
+            Vector3 right = cameraTransform.right;
+            forward.y = 0f;
+            right.y = 0f;
+
+            return (forward.normalized * vertical + right.normalized * horizontal).normalized;
         }
     }
 }
