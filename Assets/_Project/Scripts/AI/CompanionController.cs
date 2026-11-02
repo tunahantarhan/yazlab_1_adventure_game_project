@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using AdventureGame.Interfaces;
-using AdventureGame.UI; // CS0103 hatasını çözen kütüphane
+using AdventureGame.UI;
 
 namespace AdventureGame.AI
 {
@@ -32,6 +32,7 @@ namespace AdventureGame.AI
         private NavMeshAgent navAgent;
         private IInteractable targetInteractable;
         private CompanionStateType currentState;
+        private bool hasWarnedOffNavMesh = false;
 
         public NavMeshAgent Agent => navAgent;
         public Transform PlayerTarget => playerTarget;
@@ -92,6 +93,18 @@ namespace AdventureGame.AI
 
         private void ExecuteCurrentState()
         {
+            // Ajan NavMesh üzerinde değilse (bake edilmemiş zemin vb.) her frame hata basmak yerine bekler
+            if (!navAgent.isOnNavMesh)
+            {
+                if (!hasWarnedOffNavMesh)
+                {
+                    Debug.LogWarning("[Companion] Ajan NavMesh üzerinde değil, NavMesh'in bake edildiğinden emin olun.");
+                    hasWarnedOffNavMesh = true;
+                }
+                return;
+            }
+            hasWarnedOffNavMesh = false;
+
             switch (currentState)
             {
                 case CompanionStateType.FollowPlayer:
