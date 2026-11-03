@@ -75,6 +75,13 @@ namespace AdventureGame.UI
 
             if (!dialoguePanel.activeSelf) return;
 
+            // Hareket diyalog sırasında kilitli olduğu için diyalogdan çıkış ESC ile yapılır
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                CloseDialogue();
+                return;
+            }
+
             if (Input.GetKeyDown(KeyCode.Space) && !IsInputFocused)
             {
                 if (isTyping)

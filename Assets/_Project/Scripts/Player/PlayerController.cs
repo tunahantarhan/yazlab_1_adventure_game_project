@@ -47,19 +47,15 @@ namespace AdventureGame.Player
 
         private void Update()
         {
-            // Yalnızca input kutusu odaklı değilse hareket işleme alınır
-            if (DialogueUIController.IsInputFocused)
-            {
-                return;
-            }
-
             HandleMovement();
         }
 
         private void HandleMovement()
         {
-            float horizontal = Input.GetAxis("Horizontal");
-            float vertical = Input.GetAxis("Vertical");
+            // Diyalog açıkken veya input kutusuna yazılırken yön girdisi yok sayılır, yerçekimi uygulanmaya devam eder
+            bool canMove = !isMovementLocked && !DialogueUIController.IsInputFocused;
+            float horizontal = canMove ? Input.GetAxis("Horizontal") : 0f;
+            float vertical = canMove ? Input.GetAxis("Vertical") : 0f;
 
             Vector3 direction = GetCameraRelativeDirection(horizontal, vertical);
 
