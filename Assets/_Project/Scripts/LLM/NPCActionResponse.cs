@@ -2,7 +2,7 @@ using System;
 
 namespace AdventureGame.LLM
 {
-    // Modelden beklenen JSON şeması.
+    // Modelden beklenen JSON alanları. Değerlendirme aşaması intent/topic/persuasion_delta/reason, cevap aşaması attitude/decision/reply alanlarını doldurur.
     [Serializable]
     public class NPCActionResponse
     {

@@ -99,7 +99,7 @@ namespace AdventureGame.LLM
             }
         }
 
-        public async Task<LLMResult> SendChatHistoryAsync(List<OllamaChatMessage> conversationHistory)
+        public async Task<LLMResult> SendChatHistoryAsync(List<OllamaChatMessage> conversationHistory, NPCResponseSchema schema)
         {
             try
             {
@@ -122,7 +122,7 @@ namespace AdventureGame.LLM
                         return LLMResult.Failure(raw.ErrorType, raw.ErrorMessage);
                     }
 
-                    result = ParseChatResponse(raw.Text);
+                    result = ParseChatResponse(raw.Text, schema);
                     if (result.IsSuccess) return result;
 
                     // Bozuk çıktı genelde tekrar denemede düzelir; bağlantı hataları tekrar denenmez
@@ -140,7 +140,7 @@ namespace AdventureGame.LLM
             }
         }
 
-        private LLMResult ParseChatResponse(string responseText)
+        private LLMResult ParseChatResponse(string responseText, NPCResponseSchema schema)
         {
             OllamaChatResponse chatResponse;
             try
@@ -160,7 +160,7 @@ namespace AdventureGame.LLM
 
             content = ApplyInvalidResponseSimulation(content);
 
-            return parser.TryParse(content, out NPCActionResponse action, out string error)
+            return parser.TryParse(content, schema, out NPCActionResponse action, out string error)
                 ? LLMResult.Success(action)
                 : LLMResult.Failure(LLMErrorType.InvalidResponse, error);
         }

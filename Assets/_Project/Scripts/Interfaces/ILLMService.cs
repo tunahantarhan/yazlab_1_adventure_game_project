@@ -6,7 +6,8 @@ namespace AdventureGame.Interfaces
 {
     public interface ILLMService
     {
-        Task<LLMResult> SendChatHistoryAsync(List<OllamaChatMessage> conversationHistory);
+        // Model cevabı verilen şemaya göre ayrıştırılıp doğrulanır
+        Task<LLMResult> SendChatHistoryAsync(List<OllamaChatMessage> conversationHistory, NPCResponseSchema schema);
 
         // Sunucunun çalıştığını ve modelin yüklü olduğunu kontrol eder (Action alanı boş döner)
         Task<LLMResult> CheckAvailabilityAsync();

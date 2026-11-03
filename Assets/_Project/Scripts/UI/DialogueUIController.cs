@@ -224,6 +224,16 @@ namespace AdventureGame.UI
             });
         }
 
+        // Konuşmanın ardından SPACE ile bir sahne anlatımı gösterilir; anlatım başlarken onNarrationStarted çağrılır
+        public void ShowNarrationAfterSpace(string narration, Action onNarrationStarted)
+        {
+            PromptSpaceAction(() =>
+            {
+                onNarrationStarted?.Invoke();
+                StartTyping(narration, onComplete: () => PromptSpaceAction(CloseDialogue));
+            });
+        }
+
         public void ShowError(string errorMessage, bool allowRetry = true)
         {
             SetThinkingState(false);

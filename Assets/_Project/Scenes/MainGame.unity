@@ -2597,6 +2597,7 @@ MonoBehaviour:
   maxResponseTokens: 300
   warmUpOnStart: 1
   warmUpTimeoutSeconds: 120
+  simulateInvalidResponse: 0
 --- !u!4 &172748877
 Transform:
   m_ObjectHideFlags: 0
@@ -22014,13 +22015,15 @@ MonoBehaviour:
   playerTransform: {fileID: 416017119}
   decisionPolicy:
     startingTrust: 25
-    passThreshold: 70
-    allowDecisionFloor: 50
+    passThreshold: 90
     hostileMessageLimit: 3
     trustAfterCooldown: 10
-    concernBonus: 15
-    concernsToPass: 2
+    concernBonus: 10
+    concernsToPass: 3
+    concernTrustFloor: 60
     repeatedConcernMaxDelta: 4
+    rewardedSmallTalkLimit: 3
+    stuckMessageLimit: 2
   angerCooldownSeconds: 20
   maxHistoryMessages: 10
 --- !u!208 &1604471270

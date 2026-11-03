@@ -32,7 +32,19 @@ namespace AdventureGame.AI
 
         private const string Greeting = "Dur! Kaptan Van Dijk'ın mührü olmadan bu kapıdan kimse geçemez. Gerçi kaptanı aylardır gören yok ya... Ne arıyorsun burada?";
         private const string FarewellMessage = "Yolun açık olsun. Dışarıda kaptanı görürsen, Meçhul hâlâ kapıda de.";
+        private const string GateOpeningNarration = "*Meçhul paslı sürgüyü çekiyor, kapı gıcırdayarak açılıyor.*";
         private const string SilentTreatmentMessage = "*Meçhul öfkeyle gözlerini dikmiş sana bakıyor, afalladığın için konuşamıyorsun.*";
+
+        private const int ConcessionHistoryMessages = 4;
+
+        // Geçmişe eklenen muhafız cevabı, değerlendirme alanları olmadan yalnızca cevap şeması saklanır
+        [System.Serializable]
+        private class GuardReplyMessage
+        {
+            public string attitude;
+            public string decision;
+            public string reply;
+        }
 
         private ILLMService llmService;
         private readonly GuardPromptBuilder promptBuilder = new GuardPromptBuilder();
@@ -44,6 +56,7 @@ namespace AdventureGame.AI
         private float angryUntilTime = 0f;
         private Vector3 playerConvincedPosition;
         private Coroutine autoCloseCoroutine;
+        private string lastGuardReply = Greeting; // Değerlendirmede oyuncunun neye cevap verdiğini anlamak için
         private int dialogueSession = 0; // Diyalog kapanıp açılınca eski isteklerin yanıtları yok sayılır
 
         private bool IsAngry => Time.time < angryUntilTime;
@@ -136,6 +149,7 @@ namespace AdventureGame.AI
             isDialogueActive = true;
             isConvincedSequenceCompleted = false;
             dialogueSession++;
+            lastGuardReply = Greeting;
             dialogueUI.OpenDialogue(GuardPromptBuilder.GuardName, Greeting, HandlePlayerMessage);
             UpdateMoodIndicator(NPCResponseParser.DefaultAttitude);
 
@@ -178,6 +192,8 @@ namespace AdventureGame.AI
             dialogueUI.CloseDialogue();
         }
 
+        // Her tur iki LLM çağrısından oluşur: önce oyuncunun mesajı değerlendirilir (JSON: intent, topic, persuasion_delta),
+        // kapı kararı bu değerlendirmeye göre kodda verilir, ardından muhafızın cevabı (JSON: attitude, decision, reply) istenir
         private async void HandlePlayerMessage(string playerMessage)
         {
             if (llmService == null)
@@ -187,78 +203,57 @@ namespace AdventureGame.AI
             }
 
             int session = dialogueSession;
-            var userMessage = new OllamaChatMessage("user", playerMessage);
+            GuardPolicyState stateBeforeTurn = decisionPolicy.CaptureState();
+
+            // 1) Değerlendirme
+            LLMResult evaluationResult = await llmService.SendChatHistoryAsync(BuildEvaluationMessages(playerMessage), NPCResponseSchema.Evaluation);
+            if (!IsTurnStillValid(session, evaluationResult, stateBeforeTurn)) return;
+
+            NPCActionResponse evaluation = evaluationResult.Action;
+            GuardTurnOutcome outcome = decisionPolicy.Evaluate(evaluation);
+
+            Debug.Log($"[NPCGuard] Değerlendirme → Niyet: {evaluation.intent} | Dert: {evaluation.topic}{(outcome.NewConcernAddressed ? " (YENİ)" : "")} " +
+                      $"({outcome.ConcernsAddressed}/{decisionPolicy.ConcernsToPass}) | Güven: {outcome.Trust}/100 ({outcome.AppliedDelta:+0;-0;0}, model: {evaluation.persuasion_delta:+0;-0;0}) " +
+                      $"| Kapı: {(outcome.OpensGate ? "AÇILIYOR" : "kapalı")} | Sebep: {evaluation.reason}");
+
+            // 2) Cevap: kapı açılıyorsa muhafız kapıyı açtığını söyleyen bir cevap üretir.
+            // Manipülasyon olarak değerlendirilen mesaj cevap modeline gösterilmez (prompt injection savunması)
+            bool isManipulation = evaluation.intent == "MANIPULATION";
+            var userMessage = new OllamaChatMessage("user", isManipulation ? GuardPromptBuilder.ManipulationPlaceholder : playerMessage);
+            List<OllamaChatMessage> replyMessages = outcome.OpensGate
+                ? BuildConcessionMessages(playerMessage)
+                : BuildReplyMessages(evaluation, userMessage);
+
+            LLMResult replyResult = await llmService.SendChatHistoryAsync(replyMessages, NPCResponseSchema.Reply);
+            if (!IsTurnStillValid(session, replyResult, stateBeforeTurn)) return;
+
+            NPCActionResponse reply = replyResult.Action;
+            Debug.Log($"[NPCGuard] Cevap → Karar: {reply.decision} | Tavır: {reply.attitude}");
+
+            // Kapıyı kod açtığı için tavır göstergesi de kararla tutarlı tutulur
+            UpdateMoodIndicator(outcome.OpensGate ? "CONVINCED" : reply.attitude);
+            lastGuardReply = reply.reply;
+
+            // Modelin kendi cevabı geçerli JSON olarak geçmişe eklenir (tırnak vb. karakterler doğru kaçırılır)
             conversationHistory.Add(userMessage);
-
-            LLMResult result = await llmService.SendChatHistoryAsync(BuildRequestMessages());
-            if (this == null) return;
-
-            // Yanıt beklenirken oyuncu bir şekilde diyaloğu kapattıysa yanıt yok sayılır
-            if (session != dialogueSession || !isDialogueActive)
-            {
-                conversationHistory.Remove(userMessage);
-                Debug.Log("[NPCGuard] Diyalog kapandığı için gelen yanıt yok sayıldı.");
-                return;
-            }
-
-            if (!result.IsSuccess)
-            {
-                // Cevapsız kalan mesaj geçmişten çıkarılır, oyuncu aynı mesajı tekrar gönderebilir
-                conversationHistory.Remove(userMessage);
-                dialogueUI.ShowError($"{result.ErrorMessage} Mesajını tekrar gönderebilirsin.");
-                return;
-            }
-
-            NPCActionResponse action = result.Action;
-            GuardTurnOutcome outcome = decisionPolicy.Evaluate(action);
-
-            Debug.Log($"[NPCGuard] Niyet: {action.intent} | Dert: {action.topic}{(outcome.NewConcernAddressed ? " (YENİ)" : "")} " +
-                      $"({outcome.ConcernsAddressed}/{decisionPolicy.ConcernsToPass}) | Güven: {outcome.Trust}/100 ({outcome.AppliedDelta:+0;-0;0}, model: {action.persuasion_delta:+0;-0;0}) " +
-                      $"| Model kararı: {action.decision} | Tavır: {action.attitude} | Kapı: {(outcome.OpensGate ? "AÇILIYOR" : "kapalı")} | Sebep: {action.reason}");
-
-            // Güven eşiği bu turda aşıldıysa model cevabını eski puanla ("açamam") üretmiş olabilir;
-            // kapıyı açtığını söyleyen yeni bir cevap yine modelden istenir
-            if (outcome.OpensGate && action.decision != NPCResponseParser.DecisionAllow)
-            {
-                LLMResult concession = await llmService.SendChatHistoryAsync(BuildRequestMessages(true));
-                if (this == null) return;
-
-                if (concession.IsSuccess)
-                {
-                    action = concession.Action;
-                    Debug.Log($"[NPCGuard] Güven eşiği aşıldı, kapı kodla açılıyor. Açılış cevabı → Model kararı: {action.decision} | Tavır: {action.attitude}");
-                }
-                else
-                {
-                    Debug.LogWarning($"[NPCGuard] Kapı açılış cevabı alınamadı, ilk cevap kullanılıyor: {concession.ErrorMessage}");
-                }
-
-                if (session != dialogueSession || !isDialogueActive)
-                {
-                    // Oyuncu bu sırada uzaklaştıysa ikna yine geçerlidir, kapı doğrudan açılır
-                    isGateOpened = true;
-                    if (finalDoor != null) finalDoor.OpenDoor();
-                    return;
-                }
-            }
-
-            UpdateMoodIndicator(action.attitude);
-
-            // Modelin kendi yanıtı geçerli JSON olarak geçmişe eklenir (tırnak vb. karakterler doğru kaçırılır)
-            conversationHistory.Add(new OllamaChatMessage("assistant", JsonUtility.ToJson(action)));
+            conversationHistory.Add(new OllamaChatMessage("assistant",
+                JsonUtility.ToJson(new GuardReplyMessage { attitude = reply.attitude, decision = reply.decision, reply = reply.reply })));
 
             if (outcome.OpensGate)
             {
                 isGateOpened = true;
 
-                // Yanıt tamamen ekranda yazılıp bitince kapı açılır
-                dialogueUI.ShowNPCResponse(action.reply, () =>
+                // Muhafızın (LLM) cevabı bittikten sonra SPACE ile kapının açıldığını anlatan sahne satırı gelir ve kapı açılır
+                dialogueUI.ShowNPCResponse(reply.reply, () =>
                 {
-                    if (finalDoor != null) finalDoor.OpenDoor();
+                    dialogueUI.ShowNarrationAfterSpace(GateOpeningNarration, () =>
+                    {
+                        if (finalDoor != null) finalDoor.OpenDoor();
 
-                    playerConvincedPosition = playerTransform.position;
-                    isConvincedSequenceCompleted = true;
-                    RestartAutoClose(10f);
+                        playerConvincedPosition = playerTransform.position;
+                        isConvincedSequenceCompleted = true;
+                        RestartAutoClose(10f);
+                    });
                 });
             }
             else if (outcome.RefusesToTalk)
@@ -266,7 +261,7 @@ namespace AdventureGame.AI
                 // Muhafız öfkelenir: bir süre konuşmaz, sonra sakinleşir
                 angryUntilTime = Time.time + angerCooldownSeconds;
                 decisionPolicy.CalmDown();
-                dialogueUI.ShowNPCResponse(action.reply, () =>
+                dialogueUI.ShowNPCResponse(reply.reply, () =>
                 {
                     dialogueUI.ShowError($"Meçhul öfkelendi ve konuşmayı kesti. {angerCooldownSeconds:0} saniye sonra tekrar dene.", false);
                     RestartAutoClose(3f);
@@ -274,24 +269,65 @@ namespace AdventureGame.AI
             }
             else
             {
-                dialogueUI.ShowNPCResponse(action.reply);
+                dialogueUI.ShowNPCResponse(reply.reply);
             }
         }
 
-        // Her istekte güncel güven puanıyla yeniden üretilen system prompt + son N mesaj gönderilir
-        private List<OllamaChatMessage> BuildRequestMessages(bool isConvinced = false)
+        // Yanıt beklenirken diyalog kapandıysa veya istek başarısızsa tur geri alınır; oyuncu aynı mesajı tekrar gönderebilir
+        private bool IsTurnStillValid(int session, LLMResult result, GuardPolicyState stateBeforeTurn)
+        {
+            if (this == null) return false;
+
+            if (session != dialogueSession || !isDialogueActive)
+            {
+                decisionPolicy.RestoreState(stateBeforeTurn);
+                Debug.Log("[NPCGuard] Diyalog kapandığı için gelen yanıt yok sayıldı.");
+                return false;
+            }
+
+            if (!result.IsSuccess)
+            {
+                decisionPolicy.RestoreState(stateBeforeTurn);
+                dialogueUI.ShowError($"{result.ErrorMessage} Mesajını tekrar gönderebilirsin.");
+                return false;
+            }
+
+            return true;
+        }
+
+        // Değerlendirme rol yapmadan, yalnızca muhafızın son sözü ve oyuncunun son mesajıyla yapılır
+        private List<OllamaChatMessage> BuildEvaluationMessages(string playerMessage)
+        {
+            return new List<OllamaChatMessage>
+            {
+                new OllamaChatMessage("system", promptBuilder.BuildEvaluation(lastGuardReply, playerMessage))
+            };
+        }
+
+        // Cevap prompt'u güncel güven, değerlendirme ve ipucu durumuyla her turda yeniden üretilir; son N mesaj eklenir
+        private List<OllamaChatMessage> BuildReplyMessages(NPCActionResponse evaluation, OllamaChatMessage userMessage)
         {
             int start = Mathf.Max(0, conversationHistory.Count - maxHistoryMessages);
             var messages = new List<OllamaChatMessage>
             {
-                new OllamaChatMessage("system", promptBuilder.Build(decisionPolicy.Trust, decisionPolicy.PassThreshold, decisionPolicy.AddressedConcerns))
+                new OllamaChatMessage("system", promptBuilder.BuildReply(evaluation, decisionPolicy.Trust,
+                    decisionPolicy.AddressedConcerns, decisionPolicy.IsPlayerStuck))
             };
             messages.AddRange(conversationHistory.GetRange(start, conversationHistory.Count - start));
+            messages.Add(userMessage);
+            return messages;
+        }
 
-            if (isConvinced)
+        // Kapı açılış cevabı kısa bir prompt ve yalnızca son birkaç mesajla istenir
+        private List<OllamaChatMessage> BuildConcessionMessages(string playerMessage)
+        {
+            int start = Mathf.Max(0, conversationHistory.Count - ConcessionHistoryMessages);
+            var messages = new List<OllamaChatMessage>
             {
-                messages.Add(new OllamaChatMessage("system", GuardPromptBuilder.ConvincedInstruction));
-            }
+                new OllamaChatMessage("system", promptBuilder.BuildConcession(playerMessage))
+            };
+            messages.AddRange(conversationHistory.GetRange(start, conversationHistory.Count - start));
+            messages.Add(new OllamaChatMessage("user", playerMessage));
             return messages;
         }
 

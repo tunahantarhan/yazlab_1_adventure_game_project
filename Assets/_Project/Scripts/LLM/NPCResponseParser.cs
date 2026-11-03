@@ -3,7 +3,15 @@ using UnityEngine;
 
 namespace AdventureGame.LLM
 {
-    // Modelin ürettiği metni NPCActionResponse'a çevirir, alanları doğrular.
+    // Muhafız iki ayrı JSON şeması üretir: değerlendirme (intent, topic, persuasion_delta, reason)
+    // ve cevap (attitude, decision, reply). Her şemada farklı alanlar zorunludur.
+    public enum NPCResponseSchema
+    {
+        Evaluation,
+        Reply
+    }
+
+    // Modelin ürettiği metni NPCActionResponse'a çevirir, alanları seçilen şemaya göre doğrular.
     // Serbest metin eşleştirmesi yapılmaz, geçerli JSON ve şemaya uyan değerler dışındaki her şey reddedilir.
     public class NPCResponseParser
     {
@@ -18,7 +26,7 @@ namespace AdventureGame.LLM
 
         public static readonly string[] Intents =
         {
-            "GREETING", "QUESTION", "PERSUADE", "EMPATHY", "LIE",
+            "GREETING", "QUESTION", "REQUEST", "PERSUADE", "EMPATHY", "LIE",
             "BRIBE", "THREATEN", "INSULT", "OFF_TOPIC", "MANIPULATION"
         };
 
@@ -26,7 +34,7 @@ namespace AdventureGame.LLM
 
         public static readonly string[] Attitudes = { "ANGRY", "SUSPICIOUS", "NEUTRAL", "SYMPATHETIC", "CONVINCED" };
 
-        public bool TryParse(string content, out NPCActionResponse response, out string error)
+        public bool TryParse(string content, NPCResponseSchema schema, out NPCActionResponse response, out string error)
         {
             response = null;
 
@@ -54,37 +62,48 @@ namespace AdventureGame.LLM
             }
 
             // JsonUtility eksik alanları sessizce boş bıraktığı için zorunlu alanlar elle doğrulanır
+            error = schema == NPCResponseSchema.Evaluation ? ValidateEvaluation(response) : ValidateReply(response);
+            return error == null;
+        }
+
+        private static string ValidateEvaluation(NPCActionResponse response)
+        {
+            if (string.IsNullOrWhiteSpace(response.intent))
+            {
+                return "Değerlendirmede 'intent' alanı eksik.";
+            }
+
+            // Tanımsız niyet/konu yanıtı geçersiz kılmaz, nötr değerlere çekilir ve karar politikası buna göre davranır
+            response.intent = OneOf(Normalize(response.intent), Intents, UnknownIntent);
+            response.topic = OneOf(Normalize(response.topic), Topics, NoTopic);
+            response.persuasion_delta = Mathf.Clamp(response.persuasion_delta, MinPersuasionDelta, MaxPersuasionDelta);
+            response.reason = response.reason?.Trim() ?? "";
+            return null;
+        }
+
+        private static string ValidateReply(NPCActionResponse response)
+        {
             if (string.IsNullOrWhiteSpace(response.reply))
             {
-                error = "Model yanıtında 'reply' alanı eksik.";
-                return false;
+                return "Model yanıtında 'reply' alanı eksik.";
             }
 
             // Bazı çok dilli modeller cümlenin ortasında başka bir dile kayabiliyor, bu tarz yanıtlar tekrar denenir
             if (ContainsForeignScript(response.reply))
             {
-                error = "Model yanıtı Türkçe dışı karakterler içeriyor.";
-                return false;
+                return "Model yanıtı Türkçe dışı karakterler içeriyor.";
             }
 
             string decision = Normalize(response.decision);
             if (decision != DecisionAllow && decision != DecisionDeny)
             {
-                error = $"Model geçersiz bir karar üretti: '{response.decision}'.";
-                return false;
+                return $"Model geçersiz bir karar üretti: '{response.decision}'.";
             }
 
             response.reply = response.reply.Trim();
             response.decision = decision;
-            response.persuasion_delta = Mathf.Clamp(response.persuasion_delta, MinPersuasionDelta, MaxPersuasionDelta);
-
-            // Tanımsız niyet/tavır yanıtı geçersiz kılmaz, nötr değerlere çekilir ve karar politikası buna göre davranır
-            response.intent = OneOf(Normalize(response.intent), Intents, UnknownIntent);
             response.attitude = OneOf(Normalize(response.attitude), Attitudes, DefaultAttitude);
-            response.topic = OneOf(Normalize(response.topic), Topics, NoTopic);
-
-            error = null;
-            return true;
+            return null;
         }
 
         private static string Normalize(string value)
