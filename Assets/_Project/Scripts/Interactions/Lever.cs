@@ -3,17 +3,23 @@ using AdventureGame.Interfaces;
 
 namespace AdventureGame.Interactions
 {
-    public class Lever : MonoBehaviour, IInteractable
+    public class Lever : MonoBehaviour, IInteractable, IResettable
     {
         [Header("Etkilesim Ayarlari")]
         [SerializeField] private DoorController targetDoor;
         [SerializeField] private Transform interactionPoint;
 
         private bool isActivated = false;
+        private Quaternion initialLocalRotation;
 
         public string InteractionPrompt => isActivated ? "Kullanildi" : "Salteri Indir";
         public Transform InteractionPoint => interactionPoint != null ? interactionPoint : transform;
         public bool CanInteract => !isActivated;
+
+        private void Awake()
+        {
+            initialLocalRotation = transform.localRotation;
+        }
 
         public void Interact()
         {
@@ -29,6 +35,14 @@ namespace AdventureGame.Interactions
             {
                 targetDoor.OpenDoor();
             }
+        }
+
+        // Şalter ve bağlı kapı defaault haline döner
+        public void ResetState()
+        {
+            isActivated = false;
+            transform.localRotation = initialLocalRotation;
+            if (targetDoor != null) targetDoor.ResetState();
         }
     }
 }

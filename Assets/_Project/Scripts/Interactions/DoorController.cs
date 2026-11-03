@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
+using AdventureGame.Interfaces;
 
 namespace AdventureGame.Interactions
 {
@@ -11,7 +12,7 @@ namespace AdventureGame.Interactions
     }
 
     [RequireComponent(typeof(NavMeshObstacle))]
-    public class DoorController : MonoBehaviour
+    public class DoorController : MonoBehaviour, IResettable
     {
         [Header("Kapi Ayarlari")]
         [SerializeField] private DoorOpenMode openMode = DoorOpenMode.Swing;
@@ -55,6 +56,15 @@ namespace AdventureGame.Interactions
             }
 
             StartCoroutine(AnimateDoorOpen());
+        }
+
+        // Kapı animasyonsuz kapanır ve NavMesh engeli geri gelir
+        public void ResetState()
+        {
+            StopAllCoroutines();
+            ApplyOpenAmount(0f);
+            isOpen = false;
+            if (navObstacle != null) navObstacle.enabled = true;
         }
 
         private IEnumerator AnimateDoorOpen()
