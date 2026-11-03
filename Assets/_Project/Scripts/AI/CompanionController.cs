@@ -1,19 +1,15 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
+using AdventureGame.AI.States;
 using AdventureGame.Interfaces;
 using AdventureGame.UI;
 
 namespace AdventureGame.AI
 {
-    public enum CompanionStateType
-    {
-        FollowPlayer,
-        MoveToObjective,
-        Interacting,
-        InDialogue
-    }
-
+    // Companion'ın bağlam sınıfı: durumları (State pattern) yönetir, durumların ortak kullandığı
+    // NavMesh, sensör ve hedef bilgisini sağlar. Karar mantığı States klasöründeki sınıflardadır.
     [RequireComponent(typeof(NavMeshAgent))]
     public class CompanionController : MonoBehaviour
     {
@@ -28,19 +24,50 @@ namespace AdventureGame.AI
         [Header("Sensör (Raycast) Ayarları")]
         [SerializeField] private float sensorRange = 5f;
         [SerializeField] private LayerMask obstacleLayer;
+        [Tooltip("Önündeki engel bu mesafeden yakınsa yavaşlar.")]
+        [SerializeField] private float slowDownDistance = 1.2f;
+        [Range(0.1f, 1f)][SerializeField] private float slowDownFactor = 0.5f;
+
+        [Header("Görev Ayarları")]
+        [Tooltip("Ajan value'daki kadar saniye hareketsiz kalırsa takılmış sayılır ve yol yeniden hesaplanır.")]
+        [SerializeField] private float stuckTimeout = 1.5f;
+        [SerializeField] private int maxRepathAttempts = 3;
+        [Tooltip("Etkileşimden önce hedefe dönmesi gereken maksimum açı farkı (derece bakımından).")]
+        [SerializeField] private float facingTolerance = 10f;
+        [SerializeField] private float turnSpeed = 6f;
+
+        private const float RepathDistanceThreshold = 0.3f;
 
         private NavMeshAgent navAgent;
         private IInteractable targetInteractable;
-        private CompanionStateType currentState;
+        private ICompanionSensor sensor;
+        private Dictionary<CompanionStateType, ICompanionState> states;
+        private ICompanionState currentState;
+        private float baseSpeed;
+        private Vector3 lastDestination;
         private bool hasWarnedOffNavMesh = false;
 
+        public event Action<CompanionStateType> StateChanged;
+        public event Action<bool> ObjectiveFinished; // true: görev başarılı
+
         public NavMeshAgent Agent => navAgent;
+        public ICompanionSensor Sensor => sensor;
         public Transform PlayerTarget => playerTarget;
         public IInteractable TargetInteractable => targetInteractable;
+        public Transform ObjectiveRoot => objectiveInteractable != null ? objectiveInteractable.transform : null;
+        public Vector3 ObjectivePoint => targetInteractable.InteractionPoint.position;
+        public CompanionStateType CurrentStateType => currentState != null ? currentState.Type : CompanionStateType.FollowPlayer;
+
+        public float FollowDistance => followDistance;
+        public float InteractDistance => interactDistance;
+        public float StuckTimeout => stuckTimeout;
+        public int MaxRepathAttempts => maxRepathAttempts;
+        public float FacingTolerance => facingTolerance;
 
         private void Awake()
         {
             navAgent = GetComponent<NavMeshAgent>();
+            baseSpeed = navAgent.speed;
 
             if (objectiveInteractable is IInteractable interactable)
             {
@@ -52,6 +79,17 @@ namespace AdventureGame.AI
                 var player = GameObject.FindGameObjectWithTag("Player");
                 if (player != null) playerTarget = player.transform;
             }
+
+            sensor = new RaycastCompanionSensor(transform, sensorRange, obstacleLayer);
+
+            states = new Dictionary<CompanionStateType, ICompanionState>
+            {
+                { CompanionStateType.FollowPlayer, new FollowPlayerState(this) },
+                { CompanionStateType.MoveToObjective, new MoveToObjectiveState(this) },
+                { CompanionStateType.Interacting, new InteractState(this) },
+                { CompanionStateType.Refusing, new RefuseState(this) },
+                { CompanionStateType.InDialogue, new InDialogueState(this) }
+            };
         }
 
         private void OnEnable()
@@ -66,32 +104,10 @@ namespace AdventureGame.AI
 
         private void Start()
         {
-            SetState(CompanionStateType.FollowPlayer);
+            ChangeState(CompanionStateType.FollowPlayer);
         }
 
         private void Update()
-        {
-            PerformRaycastSensor();
-
-            // Input kutusuna yazı yazılırken 'E' tuşunu tamamen yok say
-            if (DialogueUIController.IsInputFocused) return;
-
-            // Oyuncu serbestken 'E' tuşuna basarsa şaltere yönlendir
-            if (Input.GetKeyDown(KeyCode.E) && targetInteractable != null && currentState != CompanionStateType.InDialogue)
-            {
-                Debug.Log("[Companion] Oyuncudan emir alındı: Şaltere gidiliyor!");
-                SetState(CompanionStateType.MoveToObjective);
-            }
-
-            ExecuteCurrentState();
-        }
-
-        public void SetState(CompanionStateType newState)
-        {
-            currentState = newState;
-        }
-
-        private void ExecuteCurrentState()
         {
             // Ajan NavMesh üzerinde değilse (bake edilmemiş zemin vb.) her frame hata basmak yerine bekler
             if (!navAgent.isOnNavMesh)
@@ -105,93 +121,95 @@ namespace AdventureGame.AI
             }
             hasWarnedOffNavMesh = false;
 
-            switch (currentState)
+            // Input kutusuna yazı yazılırken 'E' tuşunu tamamen yok say
+            if (!DialogueUIController.IsInputFocused && Input.GetKeyDown(KeyCode.E))
             {
-                case CompanionStateType.FollowPlayer:
-                    if (playerTarget != null)
-                    {
-                        float dist = Vector3.Distance(transform.position, playerTarget.position);
-                        if (dist > followDistance)
-                        {
-                            navAgent.SetDestination(playerTarget.position);
-                        }
-                        else
-                        {
-                            navAgent.ResetPath();
-                        }
-                    }
-                    break;
-
-                case CompanionStateType.MoveToObjective:
-                    if (targetInteractable != null)
-                    {
-                        Vector3 dest = targetInteractable.InteractionPoint.position;
-                        navAgent.SetDestination(dest);
-
-                        float distToGoal = Vector3.Distance(transform.position, dest);
-                        if (distToGoal <= interactDistance)
-                        {
-                            SetState(CompanionStateType.Interacting);
-                        }
-                    }
-                    break;
-
-                case CompanionStateType.Interacting:
-                    navAgent.ResetPath();
-                    if (targetInteractable != null)
-                    {
-                        targetInteractable.Interact();
-                    }
-                    SetState(CompanionStateType.FollowPlayer);
-                    break;
-
-                case CompanionStateType.InDialogue:
-                    navAgent.ResetPath();
-                    if (playerTarget != null)
-                    {
-                        Vector3 lookDir = (playerTarget.position - transform.position).normalized;
-                        lookDir.y = 0;
-                        if (lookDir.sqrMagnitude > 0.01f)
-                        {
-                            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(lookDir), 3f * Time.deltaTime);
-                        }
-                    }
-                    break;
+                IssueObjectiveCommand();
             }
+
+            currentState?.UpdateState();
+        }
+
+        // "Şaltere git" emri. Test araçları da bu metodu kullanır.
+        public bool IssueObjectiveCommand()
+        {
+            if (targetInteractable == null) return false;
+
+            // Yeni emir yalnızca takip durumundayken kabul edilir
+            if (CurrentStateType != CompanionStateType.FollowPlayer)
+            {
+                return false;
+            }
+
+            if (!targetInteractable.CanInteract)
+            {
+                Debug.Log("[Companion] Hedef zaten kullanılmış, emir reddedildi.");
+                ChangeState(CompanionStateType.Refusing);
+                return false;
+            }
+
+            Debug.Log("[Companion] Oyuncudan emir alındı: Şaltere gidiliyor!");
+            ChangeState(CompanionStateType.MoveToObjective);
+            return true;
+        }
+
+        public void ChangeState(CompanionStateType newState)
+        {
+            if (!states.TryGetValue(newState, out var next)) return;
+
+            currentState?.Exit();
+            currentState = next;
+            currentState.Enter();
+
+            StateChanged?.Invoke(newState);
+        }
+
+        public void ReportObjectiveFinished(bool success)
+        {
+            ObjectiveFinished?.Invoke(success);
+        }
+
+        // Hedef belirgin şekilde değişmediyse yol her frame yeniden hesaplanmaz
+        public void MoveTo(Vector3 destination, bool force = false)
+        {
+            if (!navAgent.isOnNavMesh) return;
+            if (!force && navAgent.hasPath && (destination - lastDestination).sqrMagnitude < RepathDistanceThreshold * RepathDistanceThreshold) return;
+
+            navAgent.SetDestination(destination);
+            lastDestination = destination;
+        }
+
+        public void StopMoving()
+        {
+            if (navAgent.isOnNavMesh) navAgent.ResetPath();
+        }
+
+        public void RotateTowards(Vector3 point)
+        {
+            Vector3 direction = point - transform.position;
+            direction.y = 0f;
+            if (direction.sqrMagnitude < 0.01f) return;
+
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direction), turnSpeed * Time.deltaTime);
+        }
+
+        // Sensör önünde yakın bir engel görürse ajan yavaşlar
+        public void AdjustSpeedForObstacles()
+        {
+            ObstacleReading reading = sensor.SenseAhead();
+            bool isClose = reading.IsBlocked && reading.Distance < slowDownDistance;
+            navAgent.speed = isClose ? baseSpeed * slowDownFactor : baseSpeed;
         }
 
         private void HandleDialogueState(bool isInDialogue)
         {
             if (isInDialogue)
             {
-                SetState(CompanionStateType.InDialogue);
+                ChangeState(CompanionStateType.InDialogue);
             }
-            else
+            else if (CurrentStateType == CompanionStateType.InDialogue)
             {
-                if (currentState != CompanionStateType.MoveToObjective && currentState != CompanionStateType.Interacting)
-                {
-                    SetState(CompanionStateType.FollowPlayer);
-                }
-            }
-        }
-
-        private void PerformRaycastSensor()
-        {
-            Vector3 startPos = transform.position + Vector3.up * 0.5f;
-            Vector3 forwardDir = transform.forward;
-
-            RaycastHit hit;
-            bool isBlocked = obstacleLayer.value != 0
-                ? Physics.Raycast(startPos, forwardDir, out hit, sensorRange, obstacleLayer)
-                : Physics.Raycast(startPos, forwardDir, out hit, sensorRange);
-
-            if (isBlocked)
-            {
-                Debug.DrawRay(startPos, forwardDir * hit.distance, Color.red);
-            }
-            else
-            {
-                Debug.DrawRay(startPos, forwardDir * sensorRange, Color.green);
+                ChangeState(CompanionStateType.FollowPlayer);
             }
         }
     }

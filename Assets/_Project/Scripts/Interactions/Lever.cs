@@ -13,6 +13,7 @@ namespace AdventureGame.Interactions
 
         public string InteractionPrompt => isActivated ? "Kullanildi" : "Salteri Indir";
         public Transform InteractionPoint => interactionPoint != null ? interactionPoint : transform;
+        public bool CanInteract => !isActivated;
 
         public void Interact()
         {

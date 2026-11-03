@@ -6,6 +6,7 @@ namespace AdventureGame.Interfaces
     {
         string InteractionPrompt { get; }
         Transform InteractionPoint { get; }
+        bool CanInteract { get; }
         void Interact();
     }
 }
