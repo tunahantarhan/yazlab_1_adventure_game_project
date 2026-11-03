@@ -8,13 +8,23 @@ using AdventureGame.Interfaces;
 
 namespace AdventureGame.LLM
 {
+    // Geçersiz yanıt senaryolarını test etmek için modelin gerçek cevabına uygulanan bozulma türleri
+    public enum InvalidResponseSimulation
+    {
+        None,
+        TruncatedJson,      // JSON yarıda kesilir
+        PlainText,          // JSON yerine düz metin
+        MissingReply,       // Zorunlu 'reply' alanı yok
+        InvalidDecision     // decision ALLOW/DENY dışında bir değer
+    }
+
     // Ollama /api/chat uç noktasına istek atar. Hiçbir durumda exception fırlatmaz;
     // her hata LLMResult.Failure olarak, kullanıcıya gösterilebilecek bir mesajla döner.
     public class OllamaService : MonoBehaviour, ILLMService
     {
         [Header("Ollama Ayarları")]
         [SerializeField] private string ollamaUrl = "http://localhost:11434/api/chat";
-        [SerializeField] private string modelName = ":4b";
+        [SerializeField] private string modelName = "gemma3:4b";
         [SerializeField] private float timeoutSeconds = 30f;
 
         [Header("Dayanıklılık")]
@@ -24,6 +34,10 @@ namespace AdventureGame.LLM
         [Tooltip("Oyun başında model belleğe yüklenir, böylece ilk yanıtın gecikmesi azalır.")]
         [SerializeField] private bool warmUpOnStart = true;
         [SerializeField] private float warmUpTimeoutSeconds = 120f;
+
+        [Header("Test (Hata Enjeksiyonu)")]
+        [Tooltip("Geçersiz yanıt testi için modelin gerçek cevabı ayrıştırılmadan önce seçilen şekilde bozulur. Normal oyunda None olmalı.")]
+        [SerializeField] private InvalidResponseSimulation simulateInvalidResponse = InvalidResponseSimulation.None;
 
         private readonly NPCResponseParser parser = new NPCResponseParser();
 
@@ -115,7 +129,9 @@ namespace AdventureGame.LLM
                     Debug.LogWarning($"[OllamaService] Geçersiz model yanıtı ({attempt + 1}. deneme): {result.ErrorMessage}\nHam yanıt: {raw.Text}");
                 }
 
-                return result;
+                // Tekrar denemeler de geçersizse oyuncuya teknik ayrıntı yerine anlaşılır bir mesaj gösterilir
+                return LLMResult.Failure(LLMErrorType.InvalidResponse,
+                    $"Muhafızın cevabı anlaşılamadı, model geçersiz bir yanıt üretti ({result.ErrorMessage}).");
             }
             catch (Exception ex)
             {
@@ -142,9 +158,38 @@ namespace AdventureGame.LLM
                 return LLMResult.Failure(LLMErrorType.InvalidResponse, "Model boş yanıt döndürdü.");
             }
 
+            content = ApplyInvalidResponseSimulation(content);
+
             return parser.TryParse(content, out NPCActionResponse action, out string error)
                 ? LLMResult.Success(action)
                 : LLMResult.Failure(LLMErrorType.InvalidResponse, error);
+        }
+
+        private string ApplyInvalidResponseSimulation(string content)
+        {
+            if (simulateInvalidResponse == InvalidResponseSimulation.None) return content;
+
+            string corrupted;
+            switch (simulateInvalidResponse)
+            {
+                case InvalidResponseSimulation.TruncatedJson:
+                    corrupted = content.Substring(0, content.Length / 2);
+                    break;
+                case InvalidResponseSimulation.PlainText:
+                    corrupted = content.Replace("{", "").Replace("}", "");
+                    break;
+                case InvalidResponseSimulation.MissingReply:
+                    corrupted = content.Replace("\"reply\"", "\"cevap\"");
+                    break;
+                case InvalidResponseSimulation.InvalidDecision:
+                    corrupted = content.Replace("\"DENY\"", "\"MAYBE\"").Replace("\"ALLOW\"", "\"MAYBE\"");
+                    break;
+                default:
+                    return content;
+            }
+
+            Debug.LogWarning($"[OllamaService] TEST: Model yanıtı kasıtlı olarak bozuldu ({simulateInvalidResponse}).");
+            return corrupted;
         }
 
         // İstek ana thread'de, frame'i bloklamadan (Task.Yield) beklenir
