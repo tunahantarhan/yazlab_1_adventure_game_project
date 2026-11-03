@@ -22,6 +22,8 @@ namespace AdventureGame.UI
         [SerializeField] private Button sendButton;
         [SerializeField] private TextMeshProUGUI statusIndicatorText;
         [SerializeField] private Image portraitImage;
+        [Tooltip("Muhafızın tavrı ve ikna ilerlemesi (opsiyonel).")]
+        [SerializeField] private TextMeshProUGUI moodIndicatorText;
 
         [Header("Space İndikatörü")]
         [SerializeField] private CanvasGroup spaceIndicatorGroup;
@@ -43,6 +45,8 @@ namespace AdventureGame.UI
         private Coroutine activeTypingCoroutine;
         private bool isTyping = false;
         private string currentFullText = "";
+        private string npcSpeakerName = "";
+        private Coroutine thinkingTimerCoroutine;
 
         private void Awake()
         {
@@ -98,6 +102,8 @@ namespace AdventureGame.UI
         public void OpenDialogue(string speakerName, string greetingText, Action<string> onSendMessage)
         {
             onSendMessageAction = onSendMessage;
+            npcSpeakerName = speakerName;
+            ClearStatus();
             dialoguePanel.SetActive(true);
             OnDialogueStateChanged?.Invoke(true);
 
@@ -109,6 +115,8 @@ namespace AdventureGame.UI
 
         public void ShowSimpleMessage(string speakerName, string message)
         {
+            ClearStatus();
+            SetMoodIndicator("");
             dialoguePanel.SetActive(true);
             OnDialogueStateChanged?.Invoke(true);
             ShowInputArea(false);
@@ -124,6 +132,7 @@ namespace AdventureGame.UI
         public void CloseDialogue()
         {
             if (activeTypingCoroutine != null) StopCoroutine(activeTypingCoroutine);
+            StopThinkingTimer();
             isTyping = false;
             currentTypingCompleteCallback = null;
             dialoguePanel.SetActive(false);
@@ -139,6 +148,7 @@ namespace AdventureGame.UI
             if (string.IsNullOrEmpty(message) || isTyping) return;
 
             playerInputField.text = "";
+            ClearStatus();
             ShowInputArea(false);
             HideSpaceIndicator();
 
@@ -156,11 +166,12 @@ namespace AdventureGame.UI
         public void SetThinkingState(bool isThinking)
         {
             HideSpaceIndicator();
+            StopThinkingTimer();
             if (isThinking)
             {
-                SetSpeaker("Kraliyet Muhafızı", guardThinkingSprite != null ? guardThinkingSprite : guardNormalSprite);
+                SetSpeaker(npcSpeakerName, guardThinkingSprite != null ? guardThinkingSprite : guardNormalSprite);
                 dialogueBodyText.text = "";
-                statusIndicatorText.text = "<i>Muhafız düşünüyor...</i>";
+                thinkingTimerCoroutine = StartCoroutine(ThinkingTimerRoutine());
             }
             else
             {
@@ -168,16 +179,36 @@ namespace AdventureGame.UI
             }
         }
 
-        public void ShowNPCResponse(string reply, bool isConvinced, Action onConvincedAction)
+        // LLM yanıtı beklenirken geçen süre gösterilir; oyun bu sırada akmaya devam eder
+        private IEnumerator ThinkingTimerRoutine()
+        {
+            float startTime = Time.unscaledTime;
+            while (true)
+            {
+                int elapsed = Mathf.FloorToInt(Time.unscaledTime - startTime);
+                statusIndicatorText.text = $"<i>{npcSpeakerName} düşünüyor... ({elapsed} sn)</i>";
+                yield return new WaitForSecondsRealtime(0.25f);
+            }
+        }
+
+        private void StopThinkingTimer()
+        {
+            if (thinkingTimerCoroutine == null) return;
+            StopCoroutine(thinkingTimerCoroutine);
+            thinkingTimerCoroutine = null;
+        }
+
+        // onFinished verilmezse yanıt bittikten sonra oyuncunun yeni mesaj yazması beklenir
+        public void ShowNPCResponse(string reply, Action onFinished = null)
         {
             SetThinkingState(false);
-            SetSpeaker("Kraliyet Muhafızı", guardNormalSprite);
+            SetSpeaker(npcSpeakerName, guardNormalSprite);
 
             StartTyping(reply, onComplete: () =>
             {
-                if (isConvinced)
+                if (onFinished != null)
                 {
-                    onConvincedAction?.Invoke();
+                    onFinished.Invoke();
                 }
                 else
                 {
@@ -186,11 +217,21 @@ namespace AdventureGame.UI
             });
         }
 
-        public void ShowError(string errorMessage)
+        public void ShowError(string errorMessage, bool allowRetry = true)
         {
             SetThinkingState(false);
-            statusIndicatorText.text = $"<color=red>Hata: {errorMessage}</color>";
-            ShowInputArea(true);
+            statusIndicatorText.text = $"<color=red>{errorMessage}</color>";
+            ShowInputArea(allowRetry);
+        }
+
+        public void SetMoodIndicator(string text)
+        {
+            if (moodIndicatorText != null) moodIndicatorText.text = text;
+        }
+
+        private void ClearStatus()
+        {
+            if (statusIndicatorText != null) statusIndicatorText.text = "";
         }
 
         private void PromptSpaceAction(Action nextAction)

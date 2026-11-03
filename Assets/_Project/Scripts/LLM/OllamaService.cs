@@ -8,74 +8,228 @@ using AdventureGame.Interfaces;
 
 namespace AdventureGame.LLM
 {
+    // Ollama /api/chat uç noktasına istek atar. Hiçbir durumda exception fırlatmaz;
+    // her hata LLMResult.Failure olarak, kullanıcıya gösterilebilecek bir mesajla döner.
     public class OllamaService : MonoBehaviour, ILLMService
     {
         [Header("Ollama Ayarları")]
         [SerializeField] private string ollamaUrl = "http://localhost:11434/api/chat";
-        [SerializeField] private string modelName = "qwen2.5:7b";
-        [SerializeField] private float timeoutSeconds = 35f;
+        [SerializeField] private string modelName = ":4b";
+        [SerializeField] private float timeoutSeconds = 30f;
 
-        public async Task<(bool isSuccess, NPCActionResponse action, string errorMessage)> SendChatHistoryAsync(List<OllamaChatMessage> conversationHistory)
+        [Header("Dayanıklılık")]
+        [Tooltip("Model geçersiz JSON üretirse aynı istek değerdeki rakam kadar yeniden denenir.")]
+        [SerializeField] private int invalidResponseRetries = 1;
+        [SerializeField] private int maxResponseTokens = 300;
+        [Tooltip("Oyun başında model belleğe yüklenir, böylece ilk yanıtın gecikmesi azalır.")]
+        [SerializeField] private bool warmUpOnStart = true;
+        [SerializeField] private float warmUpTimeoutSeconds = 120f;
+
+        private readonly NPCResponseParser parser = new NPCResponseParser();
+
+        private struct RawResponse
         {
-            var requestBody = new OllamaChatRequest
+            public LLMErrorType ErrorType;
+            public string ErrorMessage;
+            public string Text;
+        }
+
+        private async void Start()
+        {
+            if (!warmUpOnStart) return;
+
+            LLMResult availability = await CheckAvailabilityAsync();
+            if (!availability.IsSuccess)
             {
-                model = modelName,
-                stream = false,
-                format = "json",
-                messages = conversationHistory,
-                options = new OllamaOptions { temperature = 0.2f }
-            };
-
-            string jsonPayload = JsonUtility.ToJson(requestBody);
-            byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonPayload);
-
-            using (UnityWebRequest request = new UnityWebRequest(ollamaUrl, "POST"))
-            {
-                request.uploadHandler = new UploadHandlerRaw(bodyRaw);
-                request.downloadHandler = new DownloadHandlerBuffer();
-                request.SetRequestHeader("Content-Type", "application/json");
-                request.timeout = (int)timeoutSeconds;
-
-                try
-                {
-                    var operation = request.SendWebRequest();
-                    while (!operation.isDone)
-                    {
-                        await Task.Yield();
-                    }
-
-                    if (request.result == UnityWebRequest.Result.ConnectionError ||
-                        request.result == UnityWebRequest.Result.ProtocolError)
-                    {
-                        string err = $"Ollama Bağlantı Hatası: {request.error}. (Ollama ve qwen2.5:3b açık mı?)";
-                        Debug.LogError($"[OllamaService] {err}");
-                        return (false, null, err);
-                    }
-
-                    string responseText = request.downloadHandler.text;
-                    OllamaChatResponse chatResponse = JsonUtility.FromJson<OllamaChatResponse>(responseText);
-
-                    if (chatResponse == null || chatResponse.message == null || string.IsNullOrEmpty(chatResponse.message.content))
-                    {
-                        return (false, null, "Modelden boş yanıt döndü.");
-                    }
-
-                    string innerJson = chatResponse.message.content.Trim();
-                    NPCActionResponse parsedAction = JsonUtility.FromJson<NPCActionResponse>(innerJson);
-
-                    if (parsedAction == null || string.IsNullOrEmpty(parsedAction.decision))
-                    {
-                        return (false, null, "Model beklenen JSON formatında karar üretemedi.");
-                    }
-
-                    return (true, parsedAction, null);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError($"[OllamaService] İstisna: {ex.Message}");
-                    return (false, null, $"Sistem Hatası: {ex.Message}");
-                }
+                Debug.LogWarning($"[OllamaService] {availability.ErrorMessage}");
+                return;
             }
+
+            // Boş mesaj listesiyle atılan istek modeli belleğe yükler
+            string payload = JsonUtility.ToJson(new OllamaChatRequest { model = modelName, messages = new List<OllamaChatMessage>() });
+            RawResponse warmUp = await SendAsync(ollamaUrl, "POST", payload, warmUpTimeoutSeconds);
+            Debug.Log(warmUp.ErrorType == LLMErrorType.None
+                ? $"[OllamaService] '{modelName}' modeli belleğe yüklendi."
+                : $"[OllamaService] Model ön yüklemesi başarısız: {warmUp.ErrorMessage}");
+        }
+
+        public async Task<LLMResult> CheckAvailabilityAsync()
+        {
+            try
+            {
+                string tagsUrl = new Uri(new Uri(ollamaUrl), "/api/tags").ToString();
+                RawResponse raw = await SendAsync(tagsUrl, "GET", null, 5f);
+                if (raw.ErrorType != LLMErrorType.None)
+                {
+                    return LLMResult.Failure(raw.ErrorType, raw.ErrorMessage);
+                }
+
+                var tags = JsonUtility.FromJson<OllamaTagsResponse>(raw.Text);
+                if (tags?.models != null)
+                {
+                    foreach (var model in tags.models)
+                    {
+                        if (model.name == modelName || model.name == modelName + ":latest")
+                        {
+                            return LLMResult.Success();
+                        }
+                    }
+                }
+
+                return LLMResult.Failure(LLMErrorType.ModelNotFound, ModelNotFoundMessage);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[OllamaService] Erişilebilirlik kontrolünde istisna: {ex.Message}");
+                return LLMResult.Failure(LLMErrorType.Unknown, "Ollama durumu kontrol edilemedi.");
+            }
+        }
+
+        public async Task<LLMResult> SendChatHistoryAsync(List<OllamaChatMessage> conversationHistory)
+        {
+            try
+            {
+                var requestBody = new OllamaChatRequest
+                {
+                    model = modelName,
+                    messages = conversationHistory,
+                    options = new OllamaOptions { temperature = 0.2f, num_predict = maxResponseTokens }
+                };
+                string payload = JsonUtility.ToJson(requestBody);
+
+                LLMResult result = null;
+                for (int attempt = 0; attempt <= invalidResponseRetries; attempt++)
+                {
+                    RawResponse raw = await SendAsync(ollamaUrl, "POST", payload, timeoutSeconds);
+                    if (raw.ErrorType != LLMErrorType.None)
+                    {
+                        // Beklenen hata durumları (sunucu kapalı vb.) uyarı olarak loglanır, LogError yalnızca beklenmeyen istisnalar içindir
+                        Debug.LogWarning($"[OllamaService] {raw.ErrorType}: {raw.ErrorMessage}");
+                        return LLMResult.Failure(raw.ErrorType, raw.ErrorMessage);
+                    }
+
+                    result = ParseChatResponse(raw.Text);
+                    if (result.IsSuccess) return result;
+
+                    // Bozuk çıktı genelde tekrar denemede düzelir; bağlantı hataları tekrar denenmez
+                    Debug.LogWarning($"[OllamaService] Geçersiz model yanıtı ({attempt + 1}. deneme): {result.ErrorMessage}\nHam yanıt: {raw.Text}");
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[OllamaService] İstisna: {ex}");
+                return LLMResult.Failure(LLMErrorType.Unknown, $"Beklenmeyen bir hata oluştu: {ex.Message}");
+            }
+        }
+
+        private LLMResult ParseChatResponse(string responseText)
+        {
+            OllamaChatResponse chatResponse;
+            try
+            {
+                chatResponse = JsonUtility.FromJson<OllamaChatResponse>(responseText);
+            }
+            catch (ArgumentException)
+            {
+                return LLMResult.Failure(LLMErrorType.InvalidResponse, "Ollama'dan okunamayan bir yanıt geldi.");
+            }
+
+            string content = chatResponse?.message?.content;
+            if (string.IsNullOrWhiteSpace(content))
+            {
+                return LLMResult.Failure(LLMErrorType.InvalidResponse, "Model boş yanıt döndürdü.");
+            }
+
+            return parser.TryParse(content, out NPCActionResponse action, out string error)
+                ? LLMResult.Success(action)
+                : LLMResult.Failure(LLMErrorType.InvalidResponse, error);
+        }
+
+        // İstek ana thread'de, frame'i bloklamadan (Task.Yield) beklenir
+        private async Task<RawResponse> SendAsync(string url, string method, string jsonBody, float timeout)
+        {
+            using var request = new UnityWebRequest(url, method);
+            if (jsonBody != null)
+            {
+                request.uploadHandler = new UploadHandlerRaw(Encoding.UTF8.GetBytes(jsonBody));
+                request.SetRequestHeader("Content-Type", "application/json");
+            }
+            request.downloadHandler = new DownloadHandlerBuffer();
+            request.timeout = Mathf.CeilToInt(timeout);
+
+            var operation = request.SendWebRequest();
+            while (!operation.isDone)
+            {
+                // Sahne kapanır veya obje yok edilirse istek iptal edilir
+                if (this == null)
+                {
+                    request.Abort();
+                    return Fail(LLMErrorType.Unknown, "İstek iptal edildi.");
+                }
+                await Task.Yield();
+            }
+
+            if (request.result == UnityWebRequest.Result.Success)
+            {
+                return new RawResponse { ErrorType = LLMErrorType.None, Text = request.downloadHandler.text };
+            }
+
+            return ClassifyError(request, timeout);
+        }
+
+        private RawResponse ClassifyError(UnityWebRequest request, float timeout)
+        {
+            string error = request.error ?? "";
+
+            if (error.IndexOf("timeout", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return Fail(LLMErrorType.Timeout,
+                    $"Muhafız {timeout:0} saniye içinde cevap veremedi (zaman aşımı). Model ilk kez yükleniyor olabilir, tekrar dene.");
+            }
+
+            if (request.result == UnityWebRequest.Result.ConnectionError)
+            {
+                return Fail(LLMErrorType.ServerUnreachable,
+                    "Ollama sunucusuna ulaşılamıyor. Ollama uygulamasını aç (veya terminalden çalıştır) ve tekrar dene.");
+            }
+
+            if (request.result == UnityWebRequest.Result.ProtocolError)
+            {
+                // 404: model indirilmemiş, 400: model adı geçersiz
+                string serverError = TryReadServerError(request.downloadHandler?.text);
+                bool isModelError = serverError != null && serverError.IndexOf("model", StringComparison.OrdinalIgnoreCase) >= 0;
+                if (request.responseCode == 404 || (request.responseCode == 400 && isModelError))
+                {
+                    return Fail(LLMErrorType.ModelNotFound, ModelNotFoundMessage);
+                }
+
+                return Fail(LLMErrorType.Unknown, $"Ollama hata döndürdü ({request.responseCode}): {serverError ?? error}");
+            }
+
+            return Fail(LLMErrorType.InvalidResponse, $"Ollama yanıtı işlenemedi: {error}");
+        }
+
+        private string ModelNotFoundMessage =>
+            $"'{modelName}' modeli yüklü değil. Terminalde 'ollama pull {modelName}' komutunu çalıştır.";
+
+        private static string TryReadServerError(string body)
+        {
+            if (string.IsNullOrEmpty(body)) return null;
+            try
+            {
+                return JsonUtility.FromJson<OllamaErrorResponse>(body)?.error;
+            }
+            catch (ArgumentException)
+            {
+                return null;
+            }
+        }
+
+        private static RawResponse Fail(LLMErrorType type, string message)
+        {
+            return new RawResponse { ErrorType = type, ErrorMessage = message };
         }
     }
 }
