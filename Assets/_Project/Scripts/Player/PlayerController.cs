@@ -14,6 +14,7 @@ namespace AdventureGame.Player
         private CharacterController characterController;
         private Vector3 velocity;
         private bool isMovementLocked = false;
+        private bool isControlEnabled = true;
         private Transform cameraTransform;
 
         private void Awake()
@@ -45,8 +46,18 @@ namespace AdventureGame.Player
             }
         }
 
+        // Ara sahnelerde (örneğin oyun sonu merdiven inişi) oyuncu dışarıdan hareket ettirilir;
+        // CharacterController kapatılır ve böylece transform'a doğrudan verilen konum ezilmez
+        public void SetControlEnabled(bool isEnabled)
+        {
+            isControlEnabled = isEnabled;
+            characterController.enabled = isEnabled;
+            velocity = Vector3.zero;
+        }
+
         private void Update()
         {
+            if (!isControlEnabled) return;
             HandleMovement();
         }
 
