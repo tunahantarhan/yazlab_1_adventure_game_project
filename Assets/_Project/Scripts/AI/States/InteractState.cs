@@ -34,6 +34,7 @@ namespace AdventureGame.AI.States
             bool canInteract = objective != null && objective.CanInteract;
             if (canInteract)
             {
+                companion.PlayInteractAnimation();
                 objective.Interact();
             }
 

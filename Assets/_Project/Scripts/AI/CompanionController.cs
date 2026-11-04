@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using AdventureGame.AI.States;
+using AdventureGame.Animation;
 using AdventureGame.Interfaces;
 using AdventureGame.UI;
 
@@ -20,6 +21,13 @@ namespace AdventureGame.AI
         [Header("Mesafe Ayarları")]
         [SerializeField] private float followDistance = 3.5f;
         [SerializeField] private float interactDistance = 1.8f;
+        [Tooltip("Oyuncu bu mesafeden uzaklaşırsa companion koşarak yetişir (örneğin oyuncu koşarken).")]
+        [SerializeField] private float runDistance = 6f;
+        [SerializeField] private float runSpeed = 6f;
+
+        [Header("Animasyon")]
+        [Tooltip("Modelin animasyonlarını süren bileşen (opsiyonel).")]
+        [SerializeField] private CharacterAnimator characterAnimator;
 
         [Header("Sensör (Raycast) Ayarları")]
         [SerializeField] private float sensorRange = 5f;
@@ -46,6 +54,7 @@ namespace AdventureGame.AI
         private float baseSpeed;
         private Vector3 lastDestination;
         private bool hasWarnedOffNavMesh = false;
+        private bool isRunning = false;
 
         public event Action<CompanionStateType> StateChanged;
         public event Action<bool> ObjectiveFinished; // true: görev başarılı
@@ -60,6 +69,7 @@ namespace AdventureGame.AI
 
         public float FollowDistance => followDistance;
         public float InteractDistance => interactDistance;
+        public float RunDistance => runDistance;
         public float StuckTimeout => stuckTimeout;
         public int MaxRepathAttempts => maxRepathAttempts;
         public float FacingTolerance => facingTolerance;
@@ -158,6 +168,7 @@ namespace AdventureGame.AI
             if (!states.TryGetValue(newState, out var next)) return;
 
             currentState?.Exit();
+            isRunning = false;
             currentState = next;
             currentState.Enter();
 
@@ -193,12 +204,23 @@ namespace AdventureGame.AI
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direction), turnSpeed * Time.deltaTime);
         }
 
+        public void SetRunning(bool shouldRun)
+        {
+            isRunning = shouldRun;
+        }
+
+        public void PlayInteractAnimation()
+        {
+            if (characterAnimator != null) characterAnimator.PlayInteract();
+        }
+
         // Sensör önünde yakın bir engel görürse ajan yavaşlar
         public void AdjustSpeedForObstacles()
         {
             ObstacleReading reading = sensor.SenseAhead();
             bool isClose = reading.IsBlocked && reading.Distance < slowDownDistance;
-            navAgent.speed = isClose ? baseSpeed * slowDownFactor : baseSpeed;
+            float speed = isRunning ? runSpeed : baseSpeed;
+            navAgent.speed = isClose ? speed * slowDownFactor : speed;
         }
 
         private void HandleDialogueState(bool isInDialogue)

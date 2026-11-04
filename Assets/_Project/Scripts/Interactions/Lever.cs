@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using AdventureGame.Interfaces;
 
@@ -9,8 +10,17 @@ namespace AdventureGame.Interactions
         [SerializeField] private DoorController targetDoor;
         [SerializeField] private Transform interactionPoint;
 
+        [Header("Görsel")]
+        [Tooltip("Çekilince dönen parça (asa). Boş bırakılırsa objenin kendisi döner.")]
+        [SerializeField] private Transform handle;
+        [SerializeField] private Vector3 pulledRotation = new Vector3(45f, 0f, 0f);
+        [SerializeField] private float pullDuration = 0.4f;
+
         private bool isActivated = false;
         private Quaternion initialLocalRotation;
+        private Coroutine pullCoroutine;
+
+        private Transform Handle => handle != null ? handle : transform;
 
         public string InteractionPrompt => isActivated ? "Kullanildi" : "Salteri Indir";
         public Transform InteractionPoint => interactionPoint != null ? interactionPoint : transform;
@@ -18,7 +28,7 @@ namespace AdventureGame.Interactions
 
         private void Awake()
         {
-            initialLocalRotation = transform.localRotation;
+            initialLocalRotation = Handle.localRotation;
         }
 
         public void Interact()
@@ -28,8 +38,8 @@ namespace AdventureGame.Interactions
             isActivated = true;
             Debug.Log("[Lever] Salter cekildi, kapi aciliyor!");
 
-            // Şalterin görseli 90 derece döndürülür, açıldığı izlenimi verilir
-            transform.Rotate(45f, 0f, 0f);
+            // Şalterin görseli yumuşakça döndürülür, çekildiği izlenimi verilir
+            pullCoroutine = StartCoroutine(PullRoutine(initialLocalRotation * Quaternion.Euler(pulledRotation)));
 
             if (targetDoor != null)
             {
@@ -41,8 +51,21 @@ namespace AdventureGame.Interactions
         public void ResetState()
         {
             isActivated = false;
-            transform.localRotation = initialLocalRotation;
+            if (pullCoroutine != null) StopCoroutine(pullCoroutine);
+            Handle.localRotation = initialLocalRotation;
             if (targetDoor != null) targetDoor.ResetState();
+        }
+
+        private IEnumerator PullRoutine(Quaternion targetRotation)
+        {
+            Quaternion startRotation = Handle.localRotation;
+            for (float t = 0f; t < pullDuration; t += Time.deltaTime)
+            {
+                Handle.localRotation = Quaternion.Slerp(startRotation, targetRotation, Mathf.SmoothStep(0f, 1f, t / pullDuration));
+                yield return null;
+            }
+            Handle.localRotation = targetRotation;
+            pullCoroutine = null;
         }
     }
 }

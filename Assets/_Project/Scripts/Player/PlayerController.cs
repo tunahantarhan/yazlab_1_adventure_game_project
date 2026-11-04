@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 using AdventureGame.UI;
 
 namespace AdventureGame.Player
@@ -7,7 +8,10 @@ namespace AdventureGame.Player
     public class PlayerController : MonoBehaviour
     {
         [Header("Hareket Ayarlari")]
-        [SerializeField] private float moveSpeed = 6f;
+        [FormerlySerializedAs("moveSpeed")]
+        [SerializeField] private float walkSpeed = 3f;
+        [Tooltip("Shift basılıyken kullanılan hız.")]
+        [SerializeField] private float runSpeed = 6f;
         [SerializeField] private float rotationSpeed = 10f;
         [SerializeField] private float gravity = -9.81f;
 
@@ -16,6 +20,8 @@ namespace AdventureGame.Player
         private bool isMovementLocked = false;
         private bool isControlEnabled = true;
         private Transform cameraTransform;
+
+        public bool IsRunning { get; private set; }
 
         private void Awake()
         {
@@ -69,13 +75,16 @@ namespace AdventureGame.Player
             float vertical = canMove ? Input.GetAxis("Vertical") : 0f;
 
             Vector3 direction = GetCameraRelativeDirection(horizontal, vertical);
+            bool isMoving = direction.magnitude >= 0.1f;
+            IsRunning = isMoving && (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
 
-            if (direction.magnitude >= 0.1f)
+            if (isMoving)
             {
                 Quaternion targetRotation = Quaternion.LookRotation(direction);
                 transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
 
-                characterController.Move(direction * (moveSpeed * Time.deltaTime));
+                float speed = IsRunning ? runSpeed : walkSpeed;
+                characterController.Move(direction * (speed * Time.deltaTime));
             }
 
             if (characterController.isGrounded && velocity.y < 0)

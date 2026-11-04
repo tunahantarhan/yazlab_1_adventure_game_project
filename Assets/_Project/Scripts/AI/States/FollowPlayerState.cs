@@ -12,9 +12,12 @@ namespace AdventureGame.AI.States
             var player = companion.PlayerTarget;
             if (player == null) return;
 
+            TargetReading reading = companion.Sensor.SenseTarget(player.position, player);
+
+            // Oyuncu koşup uzaklaşırsa companion da koşarak yetişir, yaklaşınca tekrar yürür
+            companion.SetRunning(reading.Distance > companion.RunDistance);
             companion.AdjustSpeedForObstacles();
 
-            TargetReading reading = companion.Sensor.SenseTarget(player.position, player);
             if (reading.Distance > companion.FollowDistance || !reading.HasLineOfSight)
             {
                 companion.MoveTo(player.position);
