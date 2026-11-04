@@ -22,8 +22,12 @@ namespace AdventureGame.UI
         [SerializeField] private Button sendButton;
         [SerializeField] private TextMeshProUGUI statusIndicatorText;
         [SerializeField] private Image portraitImage;
-        [Tooltip("Muhafızın tavrı ve ikna ilerlemesi (opsiyonel).")]
+        [Tooltip("Muhafızın tavrı ve ikna ilerlemesi.")]
         [SerializeField] private TextMeshProUGUI moodIndicatorText;
+        [Tooltip("Tavır, güven barı ve dertleri gösteren panel.")]
+        [SerializeField] private GuardStatusPanel guardStatusPanel;
+        [Tooltip("Portrenin çerçevesi, muhafızın tavrının rengine boyanır.")]
+        [SerializeField] private Image portraitFrame;
 
         [Header("Space İndikatörü")]
         [SerializeField] private CanvasGroup spaceIndicatorGroup;
@@ -33,6 +37,8 @@ namespace AdventureGame.UI
         [SerializeField] private Sprite guardNormalSprite;
         [SerializeField] private Sprite guardThinkingSprite;
         [SerializeField] private Sprite playerSprite;
+        [Tooltip("Tavra göre muhafız portresi. Atanmayan tavırlarda normal portre kullanılır.")]
+        [SerializeField] private AttitudePortrait[] attitudePortraits;
 
         [Header("Daktilo & Ses")]
         [SerializeField] private AudioSource audioSource;
@@ -47,6 +53,15 @@ namespace AdventureGame.UI
         private string currentFullText = "";
         private string npcSpeakerName = "";
         private Coroutine thinkingTimerCoroutine;
+        private Sprite currentGuardSprite;
+        private Color currentGuardColor = Color.white;
+
+        [Serializable]
+        private class AttitudePortrait
+        {
+            public string attitude;
+            public Sprite sprite;
+        }
 
         private void Awake()
         {
@@ -115,7 +130,8 @@ namespace AdventureGame.UI
             OnDialogueStateChanged?.Invoke(true);
 
             HideSpaceIndicator();
-            SetSpeaker(speakerName, guardNormalSprite);
+            SetGuardStatusVisible(true);
+            SetSpeaker(speakerName, GuardPortrait);
             ShowInputArea(true);
             StartTyping(greetingText);
         }
@@ -123,12 +139,12 @@ namespace AdventureGame.UI
         public void ShowSimpleMessage(string speakerName, string message)
         {
             ClearStatus();
-            SetMoodIndicator("");
+            SetGuardStatusVisible(false);
             dialoguePanel.SetActive(true);
             OnDialogueStateChanged?.Invoke(true);
             ShowInputArea(false);
             HideSpaceIndicator();
-            SetSpeaker(speakerName, guardNormalSprite);
+            SetSpeaker(speakerName, GuardPortrait);
 
             StartTyping(message, onComplete: () =>
             {
@@ -159,7 +175,7 @@ namespace AdventureGame.UI
             ShowInputArea(false);
             HideSpaceIndicator();
 
-            SetSpeaker("Sen", playerSprite);
+            SetSpeaker("Sen", playerSprite, Color.white);
             StartTyping(message, onComplete: () =>
             {
                 PromptSpaceAction(() =>
@@ -176,7 +192,7 @@ namespace AdventureGame.UI
             StopThinkingTimer();
             if (isThinking)
             {
-                SetSpeaker(npcSpeakerName, guardThinkingSprite != null ? guardThinkingSprite : guardNormalSprite);
+                SetSpeaker(npcSpeakerName, guardThinkingSprite != null ? guardThinkingSprite : GuardPortrait);
                 dialogueBodyText.text = "";
                 thinkingTimerCoroutine = StartCoroutine(ThinkingTimerRoutine());
             }
@@ -209,7 +225,7 @@ namespace AdventureGame.UI
         public void ShowNPCResponse(string reply, Action onFinished = null)
         {
             SetThinkingState(false);
-            SetSpeaker(npcSpeakerName, guardNormalSprite);
+            SetSpeaker(npcSpeakerName, GuardPortrait);
 
             StartTyping(reply, onComplete: () =>
             {
@@ -241,9 +257,40 @@ namespace AdventureGame.UI
             ShowInputArea(allowRetry);
         }
 
-        public void SetMoodIndicator(string text)
+        // Muhafızın tavrı portreye, çerçeve rengine ve durum paneline yansıtılır
+        public void SetGuardStatus(GuardStatus status, bool immediate = false)
         {
-            if (moodIndicatorText != null) moodIndicatorText.text = text;
+            currentGuardSprite = FindAttitudePortrait(status.Attitude);
+            currentGuardColor = GuardStatusPanel.AttitudeColor(status.Attitude);
+
+            if (guardStatusPanel != null)
+            {
+                if (immediate) guardStatusPanel.ShowImmediate(status);
+                else guardStatusPanel.Show(status);
+            }
+            else if (moodIndicatorText != null)
+            {
+                moodIndicatorText.text = $"{GuardStatusPanel.AttitudeLabel(status.Attitude)}  ·  Güven {status.Trust}/{status.PassThreshold}  ·  " +
+                                         $"Anlaşılan dert {status.ConcernsAddressed}/{status.ConcernsToPass}";
+            }
+        }
+
+        private void SetGuardStatusVisible(bool isVisible)
+        {
+            if (guardStatusPanel != null) guardStatusPanel.gameObject.SetActive(isVisible);
+            if (moodIndicatorText != null) moodIndicatorText.gameObject.SetActive(isVisible);
+        }
+
+        private Sprite GuardPortrait => currentGuardSprite != null ? currentGuardSprite : guardNormalSprite;
+
+        private Sprite FindAttitudePortrait(string attitude)
+        {
+            if (attitudePortraits == null) return null;
+            foreach (var portrait in attitudePortraits)
+            {
+                if (portrait != null && portrait.attitude == attitude) return portrait.sprite;
+            }
+            return null;
         }
 
         private void ClearStatus()
@@ -275,7 +322,13 @@ namespace AdventureGame.UI
 
         private void SetSpeaker(string name, Sprite portrait)
         {
+            SetSpeaker(name, portrait, currentGuardColor);
+        }
+
+        private void SetSpeaker(string name, Sprite portrait, Color frameColor)
+        {
             speakerNameText.text = name;
+            if (portraitFrame != null) portraitFrame.color = frameColor;
             if (portraitImage != null && portrait != null)
             {
                 portraitImage.sprite = portrait;

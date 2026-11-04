@@ -17,6 +17,8 @@ namespace AdventureGame.AI
         [SerializeField] private MonoBehaviour llmServiceMono;
         [SerializeField] private DialogueUIController dialogueUI;
         [SerializeField] private DoorController finalDoor;
+        [Tooltip("Muhafız öfkelendiğinde başının üstünde beliren ikon.")]
+        [SerializeField] private AngerIndicator angerIndicator;
 
         [Header("Etkileşim Ayarları")]
         [SerializeField] private float interactionDistance = 4.5f;
@@ -151,7 +153,7 @@ namespace AdventureGame.AI
             dialogueSession++;
             lastGuardReply = Greeting;
             dialogueUI.OpenDialogue(GuardPromptBuilder.GuardName, Greeting, HandlePlayerMessage);
-            UpdateMoodIndicator(NPCResponseParser.DefaultAttitude);
+            UpdateMoodIndicator(NPCResponseParser.DefaultAttitude, immediate: true);
 
             WarnIfServiceUnavailable(dialogueSession);
         }
@@ -231,7 +233,7 @@ namespace AdventureGame.AI
             Debug.Log($"[NPCGuard] Cevap → Karar: {reply.decision} | Tavır: {reply.attitude}");
 
             // Kapıyı kod açtığı için tavır göstergesi de kararla tutarlı tutulur
-            UpdateMoodIndicator(outcome.OpensGate ? "CONVINCED" : reply.attitude);
+            UpdateMoodIndicator(outcome.OpensGate ? "CONVINCED" : reply.attitude, outcome.AppliedDelta);
             lastGuardReply = reply.reply;
 
             // Modelin kendi cevabı geçerli JSON olarak geçmişe eklenir (tırnak vb. karakterler doğru kaçırılır)
@@ -260,6 +262,7 @@ namespace AdventureGame.AI
             {
                 // Muhafız öfkelenir: bir süre konuşmaz, sonra sakinleşir
                 angryUntilTime = Time.time + angerCooldownSeconds;
+                if (angerIndicator != null) angerIndicator.Show(angerCooldownSeconds);
                 decisionPolicy.CalmDown();
                 dialogueUI.ShowNPCResponse(reply.reply, () =>
                 {
@@ -332,23 +335,17 @@ namespace AdventureGame.AI
         }
 
         // Oyuncu muhafızın tavrını ve ilerlemesini görür; hangi yolun işe yaradığını tahmin etmek zorunda kalmaz
-        private void UpdateMoodIndicator(string attitude)
+        private void UpdateMoodIndicator(string attitude, int trustDelta = 0, bool immediate = false)
         {
-            dialogueUI.SetMoodIndicator(
-                $"{AttitudeLabel(attitude)}  ·  Güven {decisionPolicy.Trust}/{decisionPolicy.PassThreshold}  ·  " +
-                $"Anlaşılan dert {decisionPolicy.AddressedConcerns.Count}/{decisionPolicy.ConcernsToPass}");
-        }
-
-        private static string AttitudeLabel(string attitude)
-        {
-            switch (attitude)
+            dialogueUI.SetGuardStatus(new GuardStatus
             {
-                case "ANGRY": return "Öfkeli";
-                case "SUSPICIOUS": return "Şüpheli";
-                case "SYMPATHETIC": return "Yumuşadı";
-                case "CONVINCED": return "İkna oldu";
-                default: return "Temkinli";
-            }
+                Attitude = attitude,
+                Trust = decisionPolicy.Trust,
+                PassThreshold = decisionPolicy.PassThreshold,
+                ConcernsAddressed = decisionPolicy.AddressedConcerns.Count,
+                ConcernsToPass = decisionPolicy.ConcernsToPass,
+                TrustDelta = trustDelta
+            }, immediate);
         }
 
         private void RestartAutoClose(float delay)
