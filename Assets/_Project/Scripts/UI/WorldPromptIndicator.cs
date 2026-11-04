@@ -1,13 +1,24 @@
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using AdventureGame.Interfaces;
 using AdventureGame.Player;
 
 namespace AdventureGame.UI
 {
+    // Etkileşim hedefinin üstünde görünen tuş ipucu. İpucu yalnızca oyuncu yakınken, hedef kullanılabilirken
+    // ve diyalog kapalıyken görünür; PlayerInteractor da yalnızca görünen ipuçlarını tetikler.
     public class WorldPromptIndicator : MonoBehaviour
     {
+        private static readonly List<WorldPromptIndicator> ActiveIndicators = new List<WorldPromptIndicator>();
+
         [Header("Mesafe Ayarları")]
         [SerializeField] private float activationDistance = 6.5f;
+
+        [Header("Etkileşim")]
+        [Tooltip("IPlayerInteractable uygulayan bileşen (örnek NPCGuardController, CompanionCommandTrigger). Boş bırakılırsa üst objelerde aranır.")]
+        [SerializeField] private MonoBehaviour interactionTarget;
+        [SerializeField] private string keyLabel = "E";
 
         [Header("Bileşenler")]
         [SerializeField] private GameObject visualContainer;
@@ -22,6 +33,10 @@ namespace AdventureGame.UI
         private Camera mainCamera;
         private Vector3 initialLocalPos;
         private bool isAvailable = true;
+        private bool isDialogueOpen = false;
+        private IPlayerInteractable target;
+
+        public bool IsShown { get; private set; }
 
         private void Awake()
         {
@@ -36,6 +51,55 @@ namespace AdventureGame.UI
             {
                 initialLocalPos = visualContainer.transform.localPosition;
             }
+
+            target = interactionTarget != null
+                ? interactionTarget.GetComponent<IPlayerInteractable>()
+                : GetComponentInParent<IPlayerInteractable>();
+            if (target == null)
+            {
+                Debug.LogWarning($"[WorldPromptIndicator] {name} için IPlayerInteractable bulunamadı, ipucu tuşa bağlı değil.", this);
+            }
+        }
+
+        private void OnEnable()
+        {
+            ActiveIndicators.Add(this);
+            DialogueUIController.OnDialogueStateChanged += HandleDialogueStateChanged;
+        }
+
+        private void OnDisable()
+        {
+            ActiveIndicators.Remove(this);
+            DialogueUIController.OnDialogueStateChanged -= HandleDialogueStateChanged;
+            IsShown = false;
+        }
+
+        private void HandleDialogueStateChanged(bool isOpen)
+        {
+            isDialogueOpen = isOpen;
+        }
+
+        public static WorldPromptIndicator FindNearestShown(Vector3 position)
+        {
+            WorldPromptIndicator nearest = null;
+            float nearestDistance = float.MaxValue;
+            foreach (var indicator in ActiveIndicators)
+            {
+                if (!indicator.IsShown || indicator.target == null) continue;
+
+                float distance = Vector3.Distance(position, indicator.transform.position);
+                if (distance < nearestDistance)
+                {
+                    nearest = indicator;
+                    nearestDistance = distance;
+                }
+            }
+            return nearest;
+        }
+
+        public void Interact()
+        {
+            if (IsShown && target != null && target.CanPlayerInteract) target.PlayerInteract();
         }
 
         private void Start()
@@ -51,12 +115,15 @@ namespace AdventureGame.UI
             // Başlangıçta diyalog kutusu gizlenir
             if (canvasGroup != null) canvasGroup.alpha = 0f;
             if (visualContainer != null) visualContainer.SetActive(false);
+            SetKey(keyLabel);
         }
 
         private void LateUpdate()
         {
-            if (!isAvailable || playerTransform == null || mainCamera == null)
+            bool targetAvailable = target == null || target.CanPlayerInteract;
+            if (!isAvailable || isDialogueOpen || !targetAvailable || playerTransform == null || mainCamera == null)
             {
+                IsShown = false;
                 HideIndicator();
                 return;
             }
@@ -66,6 +133,7 @@ namespace AdventureGame.UI
 
             float distance = Vector3.Distance(transform.position, playerTransform.position);
             bool shouldShow = distance <= activationDistance;
+            IsShown = shouldShow;
 
             float targetAlpha = shouldShow ? 1f : 0f;
             canvasGroup.alpha = Mathf.MoveTowards(canvasGroup.alpha, targetAlpha, Time.deltaTime * 4f);

@@ -7171,6 +7171,7 @@ GameObject:
   - component: {fileID: 416017120}
   - component: {fileID: 416017122}
   - component: {fileID: 416017123}
+  - component: {fileID: 416017124}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -7349,6 +7350,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AdventureGame.Animation.CharacterAnimator
   animator: {fileID: 0}
   speedDampTime: 0.1
+--- !u!114 &416017124
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 416017115}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 77aa2f0228c1e478194e2e7db0109015, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AdventureGame.Player.PlayerInteractor
+  interactKey: 101
 --- !u!4 &424338934 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 1ea37a03f09c740cfb0c962636faf2fe, type: 3}
@@ -10128,7 +10142,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: F
+  m_text: E
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
@@ -10419,6 +10433,7 @@ GameObject:
   - component: {fileID: 698552486}
   - component: {fileID: 698552483}
   - component: {fileID: 698552487}
+  - component: {fileID: 698552488}
   m_Layer: 0
   m_Name: Lever
   m_TagString: Untagged
@@ -10485,6 +10500,19 @@ MonoBehaviour:
   handle: {fileID: 1362170170}
   pulledRotation: {x: 45, y: 0, z: 0}
   pullDuration: 0.4
+--- !u!114 &698552488
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 698552482}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 18c1f56ce2fe24d58a259e6b180eb157, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AdventureGame.Interactions.CompanionCommandTrigger
+  companion: {fileID: 125884182}
 --- !u!1001 &707736171
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -18543,6 +18571,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AdventureGame.UI.WorldPromptIndicator
   activationDistance: 5
+  interactionTarget: {fileID: 0}
+  keyLabel: E
   visualContainer: {fileID: 130721105}
   promptKeyText: {fileID: 0}
   breathSpeed: 2
@@ -19747,6 +19777,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AdventureGame.UI.WorldPromptIndicator
   activationDistance: 4.5
+  interactionTarget: {fileID: 0}
+  keyLabel: E
   visualContainer: {fileID: 274868498}
   promptKeyText: {fileID: 0}
   breathSpeed: 2.5
@@ -22674,7 +22706,7 @@ MonoBehaviour:
   dialogueUI: {fileID: 1570183115}
   finalDoor: {fileID: 338686216}
   angerIndicator: {fileID: 0}
-  interactionDistance: 4
+  interactionDistance: 5
   leaveDistanceAfterConvinced: 2.5
   playerTransform: {fileID: 416017119}
   decisionPolicy:

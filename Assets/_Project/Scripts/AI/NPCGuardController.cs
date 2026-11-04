@@ -11,7 +11,7 @@ namespace AdventureGame.AI
 {
     // Muhafız NPC'si: diyalog akışını yönetir. Prompt üretimi GuardPromptBuilder'da,
     // modelin değerlendirmesini oyun durumuna çevirme GuardDecisionPolicy'de, LLM iletişimi ILLMService'tedir.
-    public class NPCGuardController : MonoBehaviour
+    public class NPCGuardController : MonoBehaviour, IPlayerInteractable
     {
         [Header("Bağlantılar")]
         [SerializeField] private MonoBehaviour llmServiceMono;
@@ -104,45 +104,45 @@ namespace AdventureGame.AI
 
         private void Update()
         {
-            if (playerTransform == null) return;
+            if (playerTransform == null || !isDialogueActive) return;
 
             float distance = Vector3.Distance(transform.position, playerTransform.position);
 
-            if (isDialogueActive)
+            // Yalnızca yazı tamamen bittiğinde ve kapı açıldığında mesafe kontrolü devreye girer
+            if (isConvincedSequenceCompleted)
             {
-                // Yalnızca yazı tamamen bittiğinde ve kapı açıldığında mesafe kontrolü devreye girer
-                if (isConvincedSequenceCompleted)
-                {
-                    float distanceFromConvincedPoint = Vector3.Distance(playerTransform.position, playerConvincedPosition);
-                    if (distanceFromConvincedPoint >= leaveDistanceAfterConvinced || distance > interactionDistance)
-                    {
-                        CloseDialogue();
-                    }
-                    return;
-                }
-
-                if (distance > interactionDistance)
+                float distanceFromConvincedPoint = Vector3.Distance(playerTransform.position, playerConvincedPosition);
+                if (distanceFromConvincedPoint >= leaveDistanceAfterConvinced || distance > interactionDistance)
                 {
                     CloseDialogue();
                 }
                 return;
             }
 
-            // F tuşu interaksiyonu
-            if (Input.GetKeyDown(KeyCode.F) && distance <= interactionDistance)
+            if (distance > interactionDistance)
             {
-                if (isGateOpened)
-                {
-                    ShowNarration(FarewellMessage);
-                }
-                else if (IsAngry)
-                {
-                    ShowNarration(SilentTreatmentMessage);
-                }
-                else
-                {
-                    StartDialogue();
-                }
+                CloseDialogue();
+            }
+        }
+
+        // Etkileşim tuşu (E) PlayerInteractor üzerinden, ipucu görünürken gelir
+        public bool CanPlayerInteract => !isDialogueActive && playerTransform != null;
+
+        public void PlayerInteract()
+        {
+            if (!CanPlayerInteract) return;
+
+            if (isGateOpened)
+            {
+                ShowNarration(FarewellMessage);
+            }
+            else if (IsAngry)
+            {
+                ShowNarration(SilentTreatmentMessage);
+            }
+            else
+            {
+                StartDialogue();
             }
         }
 

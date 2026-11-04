@@ -131,16 +131,10 @@ namespace AdventureGame.AI
             }
             hasWarnedOffNavMesh = false;
 
-            // Input kutusuna yazı yazılırken 'E' tuşunu tamamen yok say
-            if (!DialogueUIController.IsInputFocused && Input.GetKeyDown(KeyCode.E))
-            {
-                IssueObjectiveCommand();
-            }
-
             currentState?.UpdateState();
         }
 
-        // "Şaltere git" emri. Test araçları da bu metodu kullanır.
+        // "Şaltere git" emri. Oyuncu CompanionCommandTrigger ile (E), test araçları doğrudan çağırır.
         public bool IssueObjectiveCommand()
         {
             if (targetInteractable == null) return false;
