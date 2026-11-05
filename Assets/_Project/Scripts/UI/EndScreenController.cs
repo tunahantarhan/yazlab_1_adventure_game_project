@@ -20,7 +20,7 @@ namespace AdventureGame.UI
         [SerializeField] private Button quitButton;
 
         [Header("Ayarlar")]
-        [Tooltip("Boş bırakılırsa Ana Menü butonu gizlenir.")]
+        [Tooltip("Boş bırakılırsa ana menü bu sahnenin içinde kabul edilir ve sahne menüyle yeniden açılır.")]
         [SerializeField] private string mainMenuSceneName = "";
         [SerializeField] private float menuFadeDuration = 0.8f;
 
@@ -31,11 +31,7 @@ namespace AdventureGame.UI
 
             if (restartButton != null) restartButton.onClick.AddListener(Restart);
             if (quitButton != null) quitButton.onClick.AddListener(Quit);
-            if (mainMenuButton != null)
-            {
-                mainMenuButton.onClick.AddListener(LoadMainMenu);
-                mainMenuButton.gameObject.SetActive(!string.IsNullOrEmpty(mainMenuSceneName));
-            }
+            if (mainMenuButton != null) mainMenuButton.onClick.AddListener(LoadMainMenu);
         }
 
         public IEnumerator FadeToBlack(float duration)
@@ -59,14 +55,17 @@ namespace AdventureGame.UI
             if (restartButton != null) restartButton.Select();
         }
 
+        // Yeniden oyna ana menüyü atlar, doğrudan oyun başlar
         private void Restart()
         {
+            MainMenuController.SkipMenuOnNextLoad = true;
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
         private void LoadMainMenu()
         {
-            SceneManager.LoadScene(mainMenuSceneName);
+            if (string.IsNullOrEmpty(mainMenuSceneName)) SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            else SceneManager.LoadScene(mainMenuSceneName);
         }
 
         private void Quit()

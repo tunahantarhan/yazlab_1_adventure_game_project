@@ -8,6 +8,7 @@ namespace AdventureGame.Animation
     {
         private static readonly int SpeedParam = Animator.StringToHash("Speed");
         private static readonly int InteractParam = Animator.StringToHash("Interact");
+        private static readonly int SpawnParam = Animator.StringToHash("Spawn");
 
         [Tooltip("Boş bırakılırsa alt objelerdeki Animator kullanılır.")]
         [SerializeField] private Animator animator;
@@ -24,7 +25,7 @@ namespace AdventureGame.Animation
 
         private void Update()
         {
-            if (animator == null || Time.deltaTime <= 0f) return;
+            if (animator == null || !animator.isActiveAndEnabled || Time.deltaTime <= 0f) return;
 
             Vector3 delta = transform.position - lastPosition;
             delta.y = 0f; // Yerçekimi ve merdiven inişi yürüme hızına sayılmaz
@@ -36,6 +37,11 @@ namespace AdventureGame.Animation
         public void PlayInteract()
         {
             if (animator != null) animator.SetTrigger(InteractParam);
+        }
+
+        public void PlaySpawn()
+        {
+            if (animator != null) animator.SetTrigger(SpawnParam);
         }
     }
 }

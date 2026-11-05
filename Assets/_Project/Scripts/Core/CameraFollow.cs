@@ -16,7 +16,11 @@ namespace AdventureGame.Core
         [Tooltip("Kapalıyken kamera sahnedeki rotasyonunu korur (izometrik görünüm).")]
         [SerializeField] private bool lookAtTarget = false;
 
-        private void Start()
+        // Takip açısında kameranın olması gereken konum (ana menüden oyuna geçişte kullanılır)
+        public Vector3 DesiredPosition => target != null ? target.position + offset : transform.position;
+
+        // Offset ilk Awake durumunda alınır. Ana menü kamerayı Start'ta menü açısına taşısa da takip mesafesi bozulmaz
+        private void Awake()
         {
             if (target != null && useSceneOffset)
             {
