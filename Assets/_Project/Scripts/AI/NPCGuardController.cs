@@ -59,7 +59,11 @@ namespace AdventureGame.AI
         private Vector3 playerConvincedPosition;
         private Coroutine autoCloseCoroutine;
         private string lastGuardReply = Greeting; // Değerlendirmede oyuncunun neye cevap verdiğini anlamak için
-        private int dialogueSession = 0; // Diyalog kapanıp açılınca eski isteklerin yanıtları yok sayılır
+        private int dialogueSession = 0; // Diyalog kapanıp açılınca eski servis uyarıları yok sayılır
+        private string currentAttitude = NPCResponseParser.DefaultAttitude;
+        private bool isTurnInProgress = false;
+        private bool isDoorOpenPending = false; // İkna edildikten sonra kapı anlatım satırında açılır
+        private System.Action deferredTurnPresentation; // Diyalog kapalıyken gelen cevap, tekrar açılınca gösterilir
 
         private bool IsAngry => Time.time < angryUntilTime;
 
@@ -100,6 +104,15 @@ namespace AdventureGame.AI
                 StopCoroutine(autoCloseCoroutine);
                 autoCloseCoroutine = null;
             }
+
+            // Oyuncu kapı açılış anlatımını beklemeden çıktıysa kapı yine de açılır
+            if (isDoorOpenPending) OpenFinalDoor();
+        }
+
+        private void OpenFinalDoor()
+        {
+            isDoorOpenPending = false;
+            if (finalDoor != null) finalDoor.OpenDoor();
         }
 
         private void Update()
@@ -132,13 +145,18 @@ namespace AdventureGame.AI
         {
             if (!CanPlayerInteract) return;
 
-            if (isGateOpened)
+            if (isTurnInProgress || deferredTurnPresentation != null)
             {
-                ShowNarration(FarewellMessage);
+                ResumeDialogue();
+            }
+            else if (isGateOpened)
+            {
+                ShowNarration(FarewellMessage, "CONVINCED");
             }
             else if (IsAngry)
             {
-                ShowNarration(SilentTreatmentMessage);
+                int remainingSeconds = Mathf.CeilToInt(angryUntilTime - Time.time);
+                ShowNarration(SilentTreatmentMessage, "ANGRY", $"Meçhul hâlâ öfkeli. {remainingSeconds} saniye sonra tekrar dene.");
             }
             else
             {
@@ -151,20 +169,44 @@ namespace AdventureGame.AI
             isDialogueActive = true;
             isConvincedSequenceCompleted = false;
             dialogueSession++;
-            lastGuardReply = Greeting;
-            dialogueUI.OpenDialogue(GuardPromptBuilder.GuardName, Greeting, HandlePlayerMessage);
-            UpdateMoodIndicator(NPCResponseParser.DefaultAttitude, immediate: true);
+
+            // Konuşma daha önce başladıysa karşılama yerine muhafızın son sözü tekrar gösterilir
+            string openingLine = conversationHistory.Count > 0 ? lastGuardReply : Greeting;
+            // Tavır panelden önce güncellenir ki portre çerçevesi açılışta doğru renkte olsun
+            UpdateMoodIndicator(currentAttitude, immediate: true);
+            dialogueUI.OpenDialogue(GuardPromptBuilder.GuardName, openingLine, HandlePlayerMessage);
 
             WarnIfServiceUnavailable(dialogueSession);
         }
 
+        // Muhafız düşünürken diyalog kapatıldıysa istek arka planda sürer,
+        // geri dönünce bekleme ya da gelen cevap gösterilir
+        private void ResumeDialogue()
+        {
+            isDialogueActive = true;
+            isConvincedSequenceCompleted = false;
+            dialogueSession++;
+            dialogueUI.ResumeDialogue(GuardPromptBuilder.GuardName, HandlePlayerMessage);
+
+            if (deferredTurnPresentation != null)
+            {
+                var present = deferredTurnPresentation;
+                deferredTurnPresentation = null;
+                present.Invoke();
+            }
+            else
+            {
+                dialogueUI.SetThinkingState(true, resetTimer: false);
+            }
+        }
+
         // Sessizlik yazısı ile kapı açıldıktan sonraki veda yazısı LLM'e gitmeyen sabit anlatım satırlarıdır
-        private void ShowNarration(string message)
+        private void ShowNarration(string message, string attitude, string statusMessage = null)
         {
             isDialogueActive = true;
             isConvincedSequenceCompleted = true;
             playerConvincedPosition = playerTransform.position;
-            dialogueUI.ShowSimpleMessage(GuardPromptBuilder.GuardName, message);
+            dialogueUI.ShowSimpleMessage(GuardPromptBuilder.GuardName, message, attitude, statusMessage);
         }
 
         // Ollama kapalıysa veya model yoksa oyuncu mesaj yazmadan önce bilgilendirilir
@@ -204,12 +246,12 @@ namespace AdventureGame.AI
                 return;
             }
 
-            int session = dialogueSession;
+            isTurnInProgress = true;
             GuardPolicyState stateBeforeTurn = decisionPolicy.CaptureState();
 
             // 1) Değerlendirme
             LLMResult evaluationResult = await llmService.SendChatHistoryAsync(BuildEvaluationMessages(playerMessage), NPCResponseSchema.Evaluation);
-            if (!IsTurnStillValid(session, evaluationResult, stateBeforeTurn)) return;
+            if (!IsTurnStillValid(evaluationResult, stateBeforeTurn)) return;
 
             NPCActionResponse evaluation = evaluationResult.Action;
             GuardTurnOutcome outcome = decisionPolicy.Evaluate(evaluation);
@@ -227,13 +269,12 @@ namespace AdventureGame.AI
                 : BuildReplyMessages(evaluation, userMessage);
 
             LLMResult replyResult = await llmService.SendChatHistoryAsync(replyMessages, NPCResponseSchema.Reply);
-            if (!IsTurnStillValid(session, replyResult, stateBeforeTurn)) return;
+            if (!IsTurnStillValid(replyResult, stateBeforeTurn)) return;
 
+            isTurnInProgress = false;
             NPCActionResponse reply = replyResult.Action;
             Debug.Log($"[NPCGuard] Cevap → Karar: {reply.decision} | Tavır: {reply.attitude}");
 
-            // Kapıyı kod açtığı için tavır göstergesi de kararla tutarlı tutulur
-            UpdateMoodIndicator(outcome.OpensGate ? "CONVINCED" : reply.attitude, outcome.AppliedDelta);
             lastGuardReply = reply.reply;
 
             // Modelin kendi cevabı geçerli JSON olarak geçmişe eklenir (tırnak vb. karakterler doğru kaçırılır)
@@ -241,16 +282,36 @@ namespace AdventureGame.AI
             conversationHistory.Add(new OllamaChatMessage("assistant",
                 JsonUtility.ToJson(new GuardReplyMessage { attitude = reply.attitude, decision = reply.decision, reply = reply.reply })));
 
+            // Kapıyı kod açtığı için tavır göstergesi de kararla tutarlı tutulur
+            string attitude = outcome.OpensGate ? "CONVINCED" : reply.attitude;
+            PresentTurn(() =>
+            {
+                currentAttitude = attitude;
+                UpdateMoodIndicator(attitude, outcome.AppliedDelta);
+                PresentReply(reply, outcome);
+            });
+        }
+
+        // Diyalog açıksa cevap hemen gösterilir, kapalıysa oyuncu muhafıza geri döndüğünde gösterilir
+        private void PresentTurn(System.Action present)
+        {
+            if (isDialogueActive) present.Invoke();
+            else deferredTurnPresentation = present;
+        }
+
+        private void PresentReply(NPCActionResponse reply, GuardTurnOutcome outcome)
+        {
             if (outcome.OpensGate)
             {
                 isGateOpened = true;
+                isDoorOpenPending = true;
 
                 // Muhafızın (LLM) cevabı bittikten sonra SPACE ile kapının açıldığını anlatan sahne satırı gelir ve kapı açılır
                 dialogueUI.ShowNPCResponse(reply.reply, () =>
                 {
                     dialogueUI.ShowNarrationAfterSpace(GateOpeningNarration, () =>
                     {
-                        if (finalDoor != null) finalDoor.OpenDoor();
+                        OpenFinalDoor();
 
                         playerConvincedPosition = playerTransform.position;
                         isConvincedSequenceCompleted = true;
@@ -276,26 +337,23 @@ namespace AdventureGame.AI
             }
         }
 
-        // Yanıt beklenirken diyalog kapandıysa veya istek başarısızsa tur geri alınır; oyuncu aynı mesajı tekrar gönderebilir
-        private bool IsTurnStillValid(int session, LLMResult result, GuardPolicyState stateBeforeTurn)
+        // İstek başarısızsa tur geri alınır, oyuncu aynı mesajı tekrar gönderebilir
+        private bool IsTurnStillValid(LLMResult result, GuardPolicyState stateBeforeTurn)
         {
             if (this == null) return false;
+            if (result.IsSuccess) return true;
 
-            if (session != dialogueSession || !isDialogueActive)
+            isTurnInProgress = false;
+            decisionPolicy.RestoreState(stateBeforeTurn);
+            if (isDialogueActive)
             {
-                decisionPolicy.RestoreState(stateBeforeTurn);
-                Debug.Log("[NPCGuard] Diyalog kapandığı için gelen yanıt yok sayıldı.");
-                return false;
-            }
-
-            if (!result.IsSuccess)
-            {
-                decisionPolicy.RestoreState(stateBeforeTurn);
                 dialogueUI.ShowError($"{result.ErrorMessage} Mesajını tekrar gönderebilirsin.");
-                return false;
             }
-
-            return true;
+            else
+            {
+                Debug.Log($"[NPCGuard] Diyalog kapalıyken istek başarısız oldu: {result.ErrorMessage}");
+            }
+            return false;
         }
 
         // Değerlendirme rol yapmadan, yalnızca muhafızın son sözü ve oyuncunun son mesajıyla yapılır
