@@ -28,6 +28,8 @@ namespace AdventureGame.UI
         [SerializeField] private GuardStatusPanel guardStatusPanel;
         [Tooltip("Portrenin çerçevesi, muhafızın tavrının rengine boyanır.")]
         [SerializeField] private Image portraitFrame;
+        [Tooltip("Oyuncu konuşurken portre çerçevesinin rengi.")]
+        [SerializeField] private Color playerFrameColor = new Color(0.784f, 0.643f, 0.361f);
 
         [Header("Space İndikatörü")]
         [SerializeField] private CanvasGroup spaceIndicatorGroup;
@@ -53,8 +55,9 @@ namespace AdventureGame.UI
         private string currentFullText = "";
         private string npcSpeakerName = "";
         private Coroutine thinkingTimerCoroutine;
+        private float thinkingStartTime;
         private Sprite currentGuardSprite;
-        private Color currentGuardColor = Color.white;
+        private Color currentGuardColor = GuardStatusPanel.AttitudeColor(null);
 
         [Serializable]
         private class AttitudePortrait
@@ -123,6 +126,14 @@ namespace AdventureGame.UI
 
         public void OpenDialogue(string speakerName, string greetingText, Action<string> onSendMessage)
         {
+            ResumeDialogue(speakerName, onSendMessage);
+            ShowInputArea(true);
+            StartTyping(greetingText);
+        }
+
+        // Panel açılır ama yazı yazılmaz; bekleyen cevap veya düşünme durumu çağıran tarafından gösterilir
+        public void ResumeDialogue(string speakerName, Action<string> onSendMessage)
+        {
             onSendMessageAction = onSendMessage;
             npcSpeakerName = speakerName;
             ClearStatus();
@@ -132,11 +143,12 @@ namespace AdventureGame.UI
             HideSpaceIndicator();
             SetGuardStatusVisible(true);
             SetSpeaker(speakerName, GuardPortrait);
-            ShowInputArea(true);
-            StartTyping(greetingText);
+            ShowInputArea(false);
+            dialogueBodyText.text = "";
         }
 
-        public void ShowSimpleMessage(string speakerName, string message)
+        // attitude verilirse portre altındaki tavır etiketi ve çerçeve o tavra boyanır, statusMessage durum satırında gösterilir
+        public void ShowSimpleMessage(string speakerName, string message, string attitude = null, string statusMessage = null)
         {
             ClearStatus();
             SetGuardStatusVisible(false);
@@ -144,7 +156,10 @@ namespace AdventureGame.UI
             OnDialogueStateChanged?.Invoke(true);
             ShowInputArea(false);
             HideSpaceIndicator();
+            if (attitude != null) SetGuardAttitude(attitude);
             SetSpeaker(speakerName, GuardPortrait);
+            if (attitude == null && guardStatusPanel != null) guardStatusPanel.SetAttitudeVisible(false);
+            if (statusMessage != null) statusIndicatorText.text = $"<color=red>{statusMessage}</color>";
 
             StartTyping(message, onComplete: () =>
             {
@@ -175,7 +190,7 @@ namespace AdventureGame.UI
             ShowInputArea(false);
             HideSpaceIndicator();
 
-            SetSpeaker("Sen", playerSprite, Color.white);
+            SetSpeaker("Sen", playerSprite, playerFrameColor, isGuard: false);
             StartTyping(message, onComplete: () =>
             {
                 PromptSpaceAction(() =>
@@ -186,12 +201,14 @@ namespace AdventureGame.UI
             });
         }
 
-        public void SetThinkingState(bool isThinking)
+        // resetTimer = false -> diyaloğa geri dönüldüğünde süre kaldığı yerden devam eder
+        public void SetThinkingState(bool isThinking, bool resetTimer = true)
         {
             HideSpaceIndicator();
             StopThinkingTimer();
             if (isThinking)
             {
+                if (resetTimer) thinkingStartTime = Time.unscaledTime;
                 SetSpeaker(npcSpeakerName, guardThinkingSprite != null ? guardThinkingSprite : GuardPortrait);
                 dialogueBodyText.text = "";
                 thinkingTimerCoroutine = StartCoroutine(ThinkingTimerRoutine());
@@ -205,10 +222,9 @@ namespace AdventureGame.UI
         // LLM yanıtı beklenirken geçen süre gösterilir; oyun bu sırada akmaya devam eder
         private IEnumerator ThinkingTimerRoutine()
         {
-            float startTime = Time.unscaledTime;
             while (true)
             {
-                int elapsed = Mathf.FloorToInt(Time.unscaledTime - startTime);
+                int elapsed = Mathf.FloorToInt(Time.unscaledTime - thinkingStartTime);
                 statusIndicatorText.text = $"<i>{npcSpeakerName} düşünüyor... ({elapsed} sn)</i>";
                 yield return new WaitForSecondsRealtime(0.25f);
             }
@@ -275,6 +291,14 @@ namespace AdventureGame.UI
             }
         }
 
+        // Durum paneli gizliyken yalnızca tavır (portre, çerçeve ve etiket) güncellenir
+        private void SetGuardAttitude(string attitude)
+        {
+            currentGuardSprite = FindAttitudePortrait(attitude);
+            currentGuardColor = GuardStatusPanel.AttitudeColor(attitude);
+            if (guardStatusPanel != null) guardStatusPanel.ShowAttitude(attitude);
+        }
+
         private void SetGuardStatusVisible(bool isVisible)
         {
             if (guardStatusPanel != null) guardStatusPanel.gameObject.SetActive(isVisible);
@@ -322,12 +346,14 @@ namespace AdventureGame.UI
 
         private void SetSpeaker(string name, Sprite portrait)
         {
-            SetSpeaker(name, portrait, currentGuardColor);
+            SetSpeaker(name, portrait, currentGuardColor, isGuard: true);
         }
 
-        private void SetSpeaker(string name, Sprite portrait, Color frameColor)
+        // Tavır etiketi portrenin altında durduğu için yalnızca muhafız konuşurken gösterilir
+        private void SetSpeaker(string name, Sprite portrait, Color frameColor, bool isGuard)
         {
             speakerNameText.text = name;
+            if (guardStatusPanel != null) guardStatusPanel.SetAttitudeVisible(isGuard);
             if (portraitFrame != null) portraitFrame.color = frameColor;
             if (portraitImage != null && portrait != null)
             {

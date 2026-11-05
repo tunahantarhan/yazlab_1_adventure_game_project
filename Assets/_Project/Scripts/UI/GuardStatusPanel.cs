@@ -66,13 +66,7 @@ namespace AdventureGame.UI
 
         public void Show(GuardStatus status)
         {
-            Color attitudeColor = AttitudeColor(status.Attitude);
-            if (attitudeText != null)
-            {
-                attitudeText.text = AttitudeLabel(status.Attitude);
-                attitudeText.color = attitudeColor;
-            }
-            if (attitudeTint != null) attitudeTint.color = attitudeColor;
+            ShowAttitude(status.Attitude);
 
             if (trustText != null) trustText.text = $"Güven {status.Trust}/{status.PassThreshold}";
             targetFill = status.PassThreshold > 0 ? Mathf.Clamp01((float)status.Trust / status.PassThreshold) : 0f;
@@ -88,6 +82,22 @@ namespace AdventureGame.UI
             Show(status);
             displayedFill = targetFill;
             ApplyFill(displayedFill);
+        }
+
+        public void ShowAttitude(string attitude)
+        {
+            Color attitudeColor = AttitudeColor(attitude);
+            if (attitudeText != null)
+            {
+                attitudeText.text = AttitudeLabel(attitude);
+                attitudeText.color = attitudeColor;
+            }
+            if (attitudeTint != null) attitudeTint.color = attitudeColor;
+        }
+
+        public void SetAttitudeVisible(bool isVisible)
+        {
+            if (attitudeText != null) attitudeText.gameObject.SetActive(isVisible);
         }
 
         public static string AttitudeLabel(string attitude)
@@ -109,8 +119,8 @@ namespace AdventureGame.UI
                 case "ANGRY": return new Color(0.9f, 0.3f, 0.25f);
                 case "SUSPICIOUS": return new Color(0.95f, 0.65f, 0.3f);
                 case "SYMPATHETIC": return new Color(0.55f, 0.8f, 0.5f);
-                case "CONVINCED": return new Color(0.95f, 0.82f, 0.4f);
-                default: return new Color(0.75f, 0.75f, 0.8f);
+                case "CONVINCED": return new Color(1f, 0.88f, 0.5f);
+                default: return new Color(0.784f, 0.643f, 0.361f); // Temkinli: çerçevenin varsayılan altın rengi
             }
         }
 
