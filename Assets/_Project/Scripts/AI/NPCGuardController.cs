@@ -32,7 +32,8 @@ namespace AdventureGame.AI
         [Tooltip("Modele gönderilen en fazla geçmiş mesaj sayısı (system prompt hariç). Yanıt süresini sınırlar.")]
         [SerializeField] private int maxHistoryMessages = 10;
 
-        private const string Greeting = "Dur! Kaptan Van Dijk'ın mührü olmadan bu kapıdan kimse geçemez. Gerçi kaptanı aylardır gören yok ya... Ne arıyorsun burada?";
+        // İlk sözü oyuncu söyler; muhafızın bütün cümleleri modelden gelir
+        private const string OpeningNarration = "*Kapının önünde paslı zırhlı, yaşlı bir muhafız dikiliyor. Elini kılıcının kabzasına koyup seni süzüyor.*";
         private const string FarewellMessage = "*Meçhul başıyla açık kapıyı gösteriyor, sonra sessizce nöbet yerine dönüyor.*";
         private const string GateOpeningNarration = "*Meçhul paslı sürgüyü çekiyor, kapı gıcırdayarak açılıyor.*";
         private const string SilentTreatmentMessage = "*Meçhul öfkeyle gözlerini dikmiş sana bakıyor, afalladığın için konuşamıyorsun.*";
@@ -58,7 +59,7 @@ namespace AdventureGame.AI
         private float angryUntilTime = 0f;
         private Vector3 playerConvincedPosition;
         private Coroutine autoCloseCoroutine;
-        private string lastGuardReply = Greeting; // Değerlendirmede oyuncunun neye cevap verdiğini anlamak için
+        private string lastGuardReply = OpeningNarration; // Değerlendirmede oyuncunun neye cevap verdiğini anlamak için
         private int dialogueSession = 0; // Diyalog kapanıp açılınca eski servis uyarıları yok sayılır
         private string currentAttitude = NPCResponseParser.DefaultAttitude;
         private bool isTurnInProgress = false;
@@ -184,8 +185,8 @@ namespace AdventureGame.AI
             isConvincedSequenceCompleted = false;
             dialogueSession++;
 
-            // Konuşma daha önce başladıysa karşılama yerine muhafızın son sözü tekrar gösterilir
-            string openingLine = conversationHistory.Count > 0 ? lastGuardReply : Greeting;
+            // Konuşma daha önce başladıysa açılış anlatımı yerine muhafızın son sözü tekrar gösterilir
+            string openingLine = conversationHistory.Count > 0 ? lastGuardReply : OpeningNarration;
             // Tavır panelden önce güncellenir ki portre çerçevesi açılışta doğru renkte olsun
             UpdateMoodIndicator(currentAttitude, immediate: true);
             dialogueUI.OpenDialogue(GuardPromptBuilder.GuardName, openingLine, HandlePlayerMessage);
