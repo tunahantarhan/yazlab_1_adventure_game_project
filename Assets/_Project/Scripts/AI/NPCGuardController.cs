@@ -33,7 +33,7 @@ namespace AdventureGame.AI
         [SerializeField] private int maxHistoryMessages = 10;
 
         private const string Greeting = "Dur! Kaptan Van Dijk'ın mührü olmadan bu kapıdan kimse geçemez. Gerçi kaptanı aylardır gören yok ya... Ne arıyorsun burada?";
-        private const string FarewellMessage = "Yolun açık olsun. Dışarıda kaptanı görürsen, Meçhul hâlâ kapıda de.";
+        private const string FarewellMessage = "*Meçhul başıyla açık kapıyı gösteriyor, sonra sessizce nöbet yerine dönüyor.*";
         private const string GateOpeningNarration = "*Meçhul paslı sürgüyü çekiyor, kapı gıcırdayarak açılıyor.*";
         private const string SilentTreatmentMessage = "*Meçhul öfkeyle gözlerini dikmiş sana bakıyor, afalladığın için konuşamıyorsun.*";
 
@@ -63,9 +63,10 @@ namespace AdventureGame.AI
         private string currentAttitude = NPCResponseParser.DefaultAttitude;
         private bool isTurnInProgress = false;
         private bool isDoorOpenPending = false; // İkna edildikten sonra kapı anlatım satırında açılır
+        private bool isAngerPending = false; // Öfke sayacı muhafızın son sözü bitip diyalog kapanınca başlar
         private System.Action deferredTurnPresentation; // Diyalog kapalıyken gelen cevap, tekrar açılınca gösterilir
 
-        private bool IsAngry => Time.time < angryUntilTime;
+        private bool IsAngry => isAngerPending || Time.time < angryUntilTime;
 
         private void Awake()
         {
@@ -96,7 +97,13 @@ namespace AdventureGame.AI
         // Diyalog UI tarafından (mesela ESC ile) kapatılırsa muhafızın durumu da senkronlanır
         private void HandleDialogueStateChanged(bool isOpen)
         {
-            if (isOpen || !isDialogueActive) return;
+            if (!isOpen) OnDialogueClosed();
+        }
+
+        // Kapanış ESC, mesafe veya otomatik kapanmadan gelse de tek yerden işlenir
+        private void OnDialogueClosed()
+        {
+            if (!isDialogueActive) return;
 
             isDialogueActive = false;
             if (autoCloseCoroutine != null)
@@ -107,6 +114,13 @@ namespace AdventureGame.AI
 
             // Oyuncu kapı açılış anlatımını beklemeden çıktıysa kapı yine de açılır
             if (isDoorOpenPending) OpenFinalDoor();
+
+            if (isAngerPending)
+            {
+                isAngerPending = false;
+                angryUntilTime = Time.time + angerCooldownSeconds;
+                if (angerIndicator != null) angerIndicator.Show(angerCooldownSeconds);
+            }
         }
 
         private void OpenFinalDoor()
@@ -226,14 +240,8 @@ namespace AdventureGame.AI
 
         private void CloseDialogue()
         {
-            if (autoCloseCoroutine != null)
-            {
-                StopCoroutine(autoCloseCoroutine);
-                autoCloseCoroutine = null;
-            }
-
-            isDialogueActive = false;
             dialogueUI.CloseDialogue();
+            OnDialogueClosed();
         }
 
         // Her tur iki LLM çağrısından oluşur: önce oyuncunun mesajı değerlendirilir (JSON: intent, topic, persuasion_delta),
@@ -322,8 +330,7 @@ namespace AdventureGame.AI
             else if (outcome.RefusesToTalk)
             {
                 // Muhafız öfkelenir: bir süre konuşmaz, sonra sakinleşir
-                angryUntilTime = Time.time + angerCooldownSeconds;
-                if (angerIndicator != null) angerIndicator.Show(angerCooldownSeconds);
+                isAngerPending = true;
                 decisionPolicy.CalmDown();
                 dialogueUI.ShowNPCResponse(reply.reply, () =>
                 {
