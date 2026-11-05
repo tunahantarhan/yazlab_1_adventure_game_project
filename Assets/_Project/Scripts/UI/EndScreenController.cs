@@ -14,6 +14,10 @@ namespace AdventureGame.UI
         [Tooltip("Başlık ve butonları içeren panelin CanvasGroup'u.")]
         [SerializeField] private CanvasGroup menuGroup;
 
+        [Header("Özet")]
+        [Tooltip("Oyun süresi ve muhafızla konuşma sayısını gösteren yazı.")]
+        [SerializeField] private TMPro.TextMeshProUGUI summaryText;
+
         [Header("Butonlar")]
         [SerializeField] private Button restartButton;
         [SerializeField] private Button mainMenuButton;
@@ -32,6 +36,15 @@ namespace AdventureGame.UI
             if (restartButton != null) restartButton.onClick.AddListener(Restart);
             if (quitButton != null) quitButton.onClick.AddListener(Quit);
             if (mainMenuButton != null) mainMenuButton.onClick.AddListener(LoadMainMenu);
+        }
+
+        public void SetSummary(float playSeconds, int guardMessages)
+        {
+            if (summaryText == null) return;
+
+            int minutes = Mathf.FloorToInt(playSeconds / 60f);
+            int seconds = Mathf.FloorToInt(playSeconds % 60f);
+            summaryText.text = $"Süre {minutes:00}:{seconds:00}   ·   Meçhul'la {guardMessages} mesajda anlaştın";
         }
 
         public IEnumerator FadeToBlack(float duration)

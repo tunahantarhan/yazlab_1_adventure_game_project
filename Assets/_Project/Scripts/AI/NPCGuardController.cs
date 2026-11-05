@@ -69,6 +69,9 @@ namespace AdventureGame.AI
 
         private bool IsAngry => isAngerPending || Time.time < angryUntilTime;
 
+        // Bitiş ekranındaki özet için: oyuncunun muhafıza gönderdiği ve cevaplanan mesaj sayısı
+        public int PlayerMessageCount => conversationHistory.Count / 2;
+
         private void Awake()
         {
             if (llmServiceMono is ILLMService service)

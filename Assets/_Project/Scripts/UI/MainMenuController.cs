@@ -14,6 +14,9 @@ namespace AdventureGame.UI
         // Bitiş ekranındaki "Yeniden Oyna" sahneyi menüyü atlayarak yeniden yükler
         public static bool SkipMenuOnNextLoad;
 
+        // Oynanışın başladığı an, bitiş ekranındaki süre menüde geçen zamanı saymaz
+        public static float GameplayStartTime { get; private set; }
+
         [Header("Menü")]
         [SerializeField] private CanvasGroup menuGroup;
         [SerializeField] private Button startButton;
@@ -63,6 +66,7 @@ namespace AdventureGame.UI
             {
                 SkipMenuOnNextLoad = false;
                 hasStarted = true;
+                GameplayStartTime = Time.time;
                 SetGroup(menuGroup, 0f, false);
                 SetGroup(hudGroup, 1f, false);
                 return;
@@ -108,6 +112,7 @@ namespace AdventureGame.UI
 
             yield return new WaitForSeconds(spawnDuration);
             if (player != null) player.SetControlEnabled(true);
+            GameplayStartTime = Time.time;
             yield return Fade(hudGroup, 1f, fadeDuration);
         }
 

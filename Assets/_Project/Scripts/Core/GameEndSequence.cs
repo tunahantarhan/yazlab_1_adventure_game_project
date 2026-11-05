@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using AdventureGame.AI;
 using AdventureGame.Player;
 using AdventureGame.UI;
 
@@ -13,6 +14,8 @@ namespace AdventureGame.Core
         [Header("Bağlantılar")]
         [SerializeField] private PlayerController player;
         [SerializeField] private EndScreenController endScreen;
+        [Tooltip("Bitiş özetindeki mesaj sayısı için.")]
+        [SerializeField] private NPCGuardController guard;
         [Tooltip("Oyuncunun merdivenden inerken sırayla yürüyeceği noktalar (yukarıdan aşağıya).")]
         [SerializeField] private Transform[] descentPath;
 
@@ -44,6 +47,10 @@ namespace AdventureGame.Core
         private IEnumerator EndingRoutine()
         {
             player.SetControlEnabled(false);
+            if (endScreen != null)
+            {
+                endScreen.SetSummary(Time.time - MainMenuController.GameplayStartTime, guard != null ? guard.PlayerMessageCount : 0);
+            }
 
             Coroutine fade = endScreen != null ? StartCoroutine(FadeAfterDelay()) : null;
             yield return WalkDescentPath();
