@@ -115,7 +115,8 @@ Yalnızca şu alanlara sahip tek bir JSON nesnesi döndür:
 
         private const string HintRule =
 @"İPUCU KURALI:
-- Oyuncu kendini tanıtırsa, sana dair bir soru sorarsa, nasıl geçebileceğini sorarsa veya sohbet tıkanırsa, reply'ın ikinci cümlesinde şu henüz konuşulmamış dertlerinden birini kendi kelimelerinle söyle: {OPEN_CONCERNS}
+- Oyuncu kendini tanıtırsa, sana dair bir soru sorarsa, nasıl geçebileceğini sorarsa veya sohbet tıkanırsa, reply'ın ikinci cümlesinde şu henüz konuşulmamış dertlerinden birini anlat: {OPEN_CONCERNS}
+- Derdi anlatırken bu cümleyi kelimesi kelimesine tekrar ETME: aynı bilgiyi başka kelimelerle, oyuncunun sözüne bağlayarak ve duygunu katarak söyle.
 ";
 
         private const string StuckHintRule =
