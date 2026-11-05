@@ -31,10 +31,6 @@ namespace AdventureGame.UI
         [Tooltip("Oyuncu konuşurken portre çerçevesinin rengi.")]
         [SerializeField] private Color playerFrameColor = new Color(0.784f, 0.643f, 0.361f);
 
-        [Header("Space İndikatörü")]
-        [SerializeField] private CanvasGroup spaceIndicatorGroup;
-        [SerializeField] private float blinkSpeed = 2.2f;
-
         [Header("Portreler")]
         [SerializeField] private Sprite guardNormalSprite;
         [SerializeField] private Sprite guardThinkingSprite;
@@ -76,20 +72,11 @@ namespace AdventureGame.UI
 
             if (dialoguePanel != null) dialoguePanel.SetActive(false);
             if (sendButton != null) sendButton.onClick.AddListener(OnSendButtonClicked);
-            HideSpaceIndicator();
         }
 
         private void Update()
         {
             IsInputFocused = playerInputField != null && playerInputField.isFocused;
-
-            if (spaceIndicatorGroup != null && spaceIndicatorGroup.gameObject.activeSelf)
-            {
-                float sine = (Mathf.Sin(Time.time * blinkSpeed) + 1f) * 0.5f;
-                spaceIndicatorGroup.alpha = Mathf.Lerp(0.25f, 1f, sine);
-                float scale = Mathf.Lerp(0.97f, 1.03f, sine);
-                spaceIndicatorGroup.transform.localScale = new Vector3(scale, scale, 1f);
-            }
 
             if (!dialoguePanel.activeSelf) return;
 
@@ -108,7 +95,6 @@ namespace AdventureGame.UI
                 }
                 else if (onSpacePressedAction != null)
                 {
-                    HideSpaceIndicator();
                     var action = onSpacePressedAction;
                     onSpacePressedAction = null;
                     action.Invoke();
@@ -140,7 +126,6 @@ namespace AdventureGame.UI
             dialoguePanel.SetActive(true);
             OnDialogueStateChanged?.Invoke(true);
 
-            HideSpaceIndicator();
             SetGuardStatusVisible(true);
             SetSpeaker(speakerName, GuardPortrait);
             ShowInputArea(false);
@@ -155,7 +140,6 @@ namespace AdventureGame.UI
             dialoguePanel.SetActive(true);
             OnDialogueStateChanged?.Invoke(true);
             ShowInputArea(false);
-            HideSpaceIndicator();
             if (attitude != null) SetGuardAttitude(attitude);
             SetSpeaker(speakerName, GuardPortrait);
             if (attitude == null && guardStatusPanel != null) guardStatusPanel.SetAttitudeVisible(false);
@@ -176,7 +160,6 @@ namespace AdventureGame.UI
             dialoguePanel.SetActive(false);
             onSendMessageAction = null;
             onSpacePressedAction = null;
-            HideSpaceIndicator();
             OnDialogueStateChanged?.Invoke(false);
         }
 
@@ -188,7 +171,6 @@ namespace AdventureGame.UI
             playerInputField.text = "";
             ClearStatus();
             ShowInputArea(false);
-            HideSpaceIndicator();
 
             SetSpeaker("Sen", playerSprite, playerFrameColor, isGuard: false);
             StartTyping(message, onComplete: () =>
@@ -204,7 +186,6 @@ namespace AdventureGame.UI
         // resetTimer = false -> diyaloğa geri dönüldüğünde süre kaldığı yerden devam eder
         public void SetThinkingState(bool isThinking, bool resetTimer = true)
         {
-            HideSpaceIndicator();
             StopThinkingTimer();
             if (isThinking)
             {
@@ -325,23 +306,6 @@ namespace AdventureGame.UI
         private void PromptSpaceAction(Action nextAction)
         {
             onSpacePressedAction = nextAction;
-            ShowSpaceIndicator();
-        }
-
-        private void ShowSpaceIndicator()
-        {
-            if (spaceIndicatorGroup != null)
-            {
-                spaceIndicatorGroup.gameObject.SetActive(true);
-            }
-        }
-
-        private void HideSpaceIndicator()
-        {
-            if (spaceIndicatorGroup != null)
-            {
-                spaceIndicatorGroup.gameObject.SetActive(false);
-            }
         }
 
         private void SetSpeaker(string name, Sprite portrait)
@@ -364,7 +328,6 @@ namespace AdventureGame.UI
 
         private void ShowInputArea(bool isVisible)
         {
-            HideSpaceIndicator();
             if (inputContainer != null) inputContainer.SetActive(isVisible);
             if (isVisible)
             {
@@ -375,7 +338,6 @@ namespace AdventureGame.UI
 
         private void StartTyping(string textToType, Action onComplete = null)
         {
-            HideSpaceIndicator();
             if (activeTypingCoroutine != null) StopCoroutine(activeTypingCoroutine);
             currentFullText = textToType;
             currentTypingCompleteCallback = onComplete;
