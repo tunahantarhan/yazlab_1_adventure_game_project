@@ -3,6 +3,7 @@ using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using AdventureGame.Audio;
 
 namespace AdventureGame.UI
 {
@@ -42,12 +43,21 @@ namespace AdventureGame.UI
         [SerializeField] private AudioSource audioSource;
         [SerializeField] private AudioClip voiceBlipClip;
         [SerializeField] private float typingSpeed = 0.03f;
+        [Tooltip("Blip sesi kaç harfte bir çalsın ayarı. (her harfte çalınca ses çok sıklaşır)")]
+        [SerializeField] private int blipEveryNChars = 2;
+        [Tooltip("Muhafızın sesi daha kalın, oyuncununki daha ince bir aralıkta duyulur.")]
+        [SerializeField] private float guardBlipPitch = 0.8f;
+        [SerializeField] private float playerBlipPitch = 1.15f;
+        [SerializeField] private SoundCue openSound = new SoundCue { volume = 0.6f };
+        [SerializeField] private SoundCue closeSound = new SoundCue { volume = 0.6f };
+        [SerializeField] private SoundCue sendSound = new SoundCue { volume = 0.5f };
 
         private Action<string> onSendMessageAction;
         private Action onSpacePressedAction;
         private Action currentTypingCompleteCallback;
         private Coroutine activeTypingCoroutine;
         private bool isTyping = false;
+        private float currentBlipPitch = 1f;
         private string currentFullText = "";
         private string npcSpeakerName = "";
         private Coroutine thinkingTimerCoroutine;
@@ -123,8 +133,7 @@ namespace AdventureGame.UI
             onSendMessageAction = onSendMessage;
             npcSpeakerName = speakerName;
             ClearStatus();
-            dialoguePanel.SetActive(true);
-            OnDialogueStateChanged?.Invoke(true);
+            ShowPanel();
 
             SetGuardStatusVisible(true);
             SetSpeaker(speakerName, GuardPortrait);
@@ -137,8 +146,7 @@ namespace AdventureGame.UI
         {
             ClearStatus();
             SetGuardStatusVisible(false);
-            dialoguePanel.SetActive(true);
-            OnDialogueStateChanged?.Invoke(true);
+            ShowPanel();
             ShowInputArea(false);
             if (attitude != null) SetGuardAttitude(attitude);
             SetSpeaker(speakerName, GuardPortrait);
@@ -151,8 +159,16 @@ namespace AdventureGame.UI
             });
         }
 
+        private void ShowPanel()
+        {
+            if (!dialoguePanel.activeSelf) openSound.Play(audioSource);
+            dialoguePanel.SetActive(true);
+            OnDialogueStateChanged?.Invoke(true);
+        }
+
         public void CloseDialogue()
         {
+            if (dialoguePanel.activeSelf) closeSound.Play(audioSource);
             if (activeTypingCoroutine != null) StopCoroutine(activeTypingCoroutine);
             StopThinkingTimer();
             isTyping = false;
@@ -169,6 +185,7 @@ namespace AdventureGame.UI
             if (string.IsNullOrEmpty(message) || isTyping) return;
 
             playerInputField.text = "";
+            sendSound.Play(audioSource);
             ClearStatus();
             ShowInputArea(false);
 
@@ -317,6 +334,7 @@ namespace AdventureGame.UI
         private void SetSpeaker(string name, Sprite portrait, Color frameColor, bool isGuard)
         {
             speakerNameText.text = name;
+            currentBlipPitch = isGuard ? guardBlipPitch : playerBlipPitch;
             if (guardStatusPanel != null) guardStatusPanel.SetAttitudeVisible(isGuard);
             if (portraitFrame != null) portraitFrame.color = frameColor;
             if (portraitImage != null && portrait != null)
@@ -368,9 +386,9 @@ namespace AdventureGame.UI
                 char c = textToType[i];
                 dialogueBodyText.text += c;
 
-                if (char.IsLetterOrDigit(c) && audioSource != null && voiceBlipClip != null)
+                if (char.IsLetterOrDigit(c) && i % Mathf.Max(1, blipEveryNChars) == 0 && audioSource != null && voiceBlipClip != null)
                 {
-                    audioSource.pitch = UnityEngine.Random.Range(0.85f, 1.15f);
+                    audioSource.pitch = currentBlipPitch + UnityEngine.Random.Range(-0.08f, 0.08f);
                     audioSource.PlayOneShot(voiceBlipClip, 0.35f);
                 }
 

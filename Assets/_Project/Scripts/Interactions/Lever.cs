@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using AdventureGame.Audio;
 using AdventureGame.Interfaces;
 
 namespace AdventureGame.Interactions
@@ -16,9 +17,13 @@ namespace AdventureGame.Interactions
         [SerializeField] private Vector3 pulledRotation = new Vector3(45f, 0f, 0f);
         [SerializeField] private float pullDuration = 0.4f;
 
+        [Header("Ses")]
+        [SerializeField] private SoundCue pullSound = new SoundCue();
+
         private bool isActivated = false;
         private Quaternion initialLocalRotation;
         private Coroutine pullCoroutine;
+        private AudioSource audioSource;
 
         private Transform Handle => handle != null ? handle : transform;
 
@@ -29,6 +34,7 @@ namespace AdventureGame.Interactions
         private void Awake()
         {
             initialLocalRotation = Handle.localRotation;
+            audioSource = SoundCue.EnsureSource(gameObject, spatial: true);
         }
 
         public void Interact()
@@ -40,6 +46,7 @@ namespace AdventureGame.Interactions
 
             // Şalterin görseli yumuşakça döndürülür, çekildiği izlenimi verilir
             pullCoroutine = StartCoroutine(PullRoutine(initialLocalRotation * Quaternion.Euler(pulledRotation)));
+            pullSound.Play(audioSource);
 
             if (targetDoor != null)
             {

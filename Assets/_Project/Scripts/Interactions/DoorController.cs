@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using UnityEngine.AI;
+using AdventureGame.Audio;
 using AdventureGame.Interfaces;
 
 namespace AdventureGame.Interactions
@@ -28,10 +29,16 @@ namespace AdventureGame.Interactions
         [Header("Slide")]
         [SerializeField] private Vector3 openOffset = new Vector3(0f, 4f, 0f);
 
+        [Header("Ses")]
+        [Tooltip("Kapı açılmaya başlarken çalar (kilit sesi + gıcırtı).")]
+        [SerializeField] private SoundCue openSound = new SoundCue();
+        [SerializeField] private SoundCue creakSound = new SoundCue();
+
         private Vector3 closedPosition;
         private Quaternion closedRotation;
         private Vector3 hingeWorldPoint;
         private NavMeshObstacle navObstacle;
+        private AudioSource audioSource;
         private bool isOpen = false;
 
         public bool IsOpen => isOpen;
@@ -42,6 +49,7 @@ namespace AdventureGame.Interactions
             closedRotation = transform.rotation;
             hingeWorldPoint = transform.TransformPoint(hingeLocalOffset);
             navObstacle = GetComponent<NavMeshObstacle>();
+            audioSource = SoundCue.EnsureSource(gameObject, spatial: true);
         }
 
         public void OpenDoor()
@@ -55,6 +63,8 @@ namespace AdventureGame.Interactions
                 navObstacle.enabled = false;
             }
 
+            openSound.Play(audioSource);
+            creakSound.Play(audioSource);
             StartCoroutine(AnimateDoorOpen());
         }
 
