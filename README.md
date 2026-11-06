@@ -90,6 +90,20 @@ flowchart LR
 
 ## 2. Kurulum ve çalıştırma
 
+### 2.1. İndir
+
+Build edilmiş sürüm GitHub Releases'ta: **[Swords N' Roses v1.0](https://github.com/tunahantarhan/yazlab_1_adventure_game_project/releases/tag/v1.0)**
+
+| Platform | Dosya |
+|---|---|
+| Windows (64-bit) | [SwordsNRoses_v1.0_Windows.zip](https://github.com/tunahantarhan/yazlab_1_adventure_game_project/releases/download/v1.0/SwordsNRoses_v1.0_Windows.zip) |
+| macOS (Apple Silicon + Intel) | [SwordsNRoses_v1.0_macOS.zip](https://github.com/tunahantarhan/yazlab_1_adventure_game_project/releases/download/v1.0/SwordsNRoses_v1.0_macOS.zip) |
+
+- **Windows:** Zip'i bir klasöre çıkar ve `Swords N' Roses.exe` dosyasını çalıştır. SmartScreen uyarısı çıkarsa "Ek bilgi → Yine de çalıştır" seç.
+- **macOS:** Zip'i aç ve `Swords N' Roses.app` uygulamasına sağ tıklayıp **Aç** seç. Uygulama imzasız olduğu için ilk açılışta bu adım gerekir. Gerekirse terminalde: `xattr -cr "Swords N' Roses.app"`
+
+### 2.2. Çalıştırma
+
 1. **Ollama'yı kur:** [ollama.com](https://ollama.com/) adresinden indir.
 2. **Modeli indir ve sunucuyu başlat:**
 
