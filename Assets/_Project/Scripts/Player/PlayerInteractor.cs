@@ -11,7 +11,7 @@ namespace AdventureGame.Player
 
         private void Update()
         {
-            if (DialogueUIController.IsInputFocused || !Input.GetKeyDown(interactKey)) return;
+            if (DialogueUIController.IsInputFocused || MainMenuController.IsPaused || !Input.GetKeyDown(interactKey)) return;
 
             WorldPromptIndicator nearest = WorldPromptIndicator.FindNearestShown(transform.position);
             if (nearest != null) nearest.Interact();

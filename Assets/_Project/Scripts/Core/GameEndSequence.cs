@@ -28,6 +28,8 @@ namespace AdventureGame.Core
 
         private bool hasStarted = false;
 
+        public bool HasStarted => hasStarted;
+
         private void Reset()
         {
             GetComponent<Collider>().isTrigger = true;

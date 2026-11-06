@@ -1,4 +1,5 @@
 using System.Collections;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using AdventureGame.Animation;
@@ -9,6 +10,7 @@ namespace AdventureGame.UI
 {
     // Ana menü oyun sahnesinin içindedir. Arka planda canlı zindan görünür, oyuncu ve companion sahnede yoktur.
     // "Oyuna Başla" ile kamera takip açısına kayar, karakterler Spawn animasyonuyla iner ve kontroller açılır.
+    // Oyun sırasında ESC aynı menüyü duraklatma menüsü olarak açar ("Devam Et" ve oyun süresiyle).
     public class MainMenuController : MonoBehaviour
     {
         // Bitiş ekranındaki "Yeniden Oyna" sahneyi menüyü atlayarak yeniden yükler
@@ -16,6 +18,9 @@ namespace AdventureGame.UI
 
         // Oynanışın başladığı an, bitiş ekranındaki süre menüde geçen zamanı saymaz
         public static float GameplayStartTime { get; private set; }
+
+        // Duraklatılmışken etkileşim tuşları yok sayılır
+        public static bool IsPaused { get; private set; }
 
         [Header("Menü")]
         [SerializeField] private CanvasGroup menuGroup;
@@ -44,9 +49,22 @@ namespace AdventureGame.UI
         [Header("Geçiş")]
         [SerializeField] private float fadeDuration = 0.5f;
 
+        [Header("Duraklatma")]
+        [SerializeField] private KeyCode pauseKey = KeyCode.Escape;
+        [Tooltip("Başla butonunun yazısı -> duraklatmada 'Devam Et' olur.")]
+        [SerializeField] private TextMeshProUGUI startButtonLabel;
+        [SerializeField] private string resumeLabel = "Devam Et";
+        [Tooltip("Butonların üstündeki oyun süresi yazısı, yalnızca duraklatmada görünür.")]
+        [SerializeField] private TextMeshProUGUI playTimeText;
+        [Tooltip("Oyun sonu başladıktan sonra duraklatma kapanır.")]
+        [SerializeField] private GameEndSequence endSequence;
+
         private Transform cameraTransform;
         private Quaternion gameplayCameraRotation;
         private bool hasStarted;
+        private bool isGameplayActive;
+        private bool isDialogueOpen;
+        private int dialogueClosedFrame = -1;
 
         private void Awake()
         {
@@ -56,8 +74,19 @@ namespace AdventureGame.UI
                 gameplayCameraRotation = cameraTransform.rotation; // Sahnedeki kamera açısı oyun içi takip açısıdır
             }
 
-            if (startButton != null) startButton.onClick.AddListener(StartGame);
+            if (startButton != null) startButton.onClick.AddListener(OnStartButtonClicked);
             if (quitButton != null) quitButton.onClick.AddListener(Quit);
+
+            IsPaused = false;
+            Time.timeScale = 1f;
+            DialogueUIController.OnDialogueStateChanged += HandleDialogueStateChanged;
+        }
+
+        private void OnDestroy()
+        {
+            DialogueUIController.OnDialogueStateChanged -= HandleDialogueStateChanged;
+            IsPaused = false;
+            Time.timeScale = 1f;
         }
 
         private void Start()
@@ -66,12 +95,14 @@ namespace AdventureGame.UI
             {
                 SkipMenuOnNextLoad = false;
                 hasStarted = true;
+                isGameplayActive = true;
                 GameplayStartTime = Time.time;
                 SetGroup(menuGroup, 0f, false);
                 SetGroup(hudGroup, 1f, false);
                 return;
             }
 
+            if (playTimeText != null) playTimeText.gameObject.SetActive(false);
             SetGroup(menuGroup, 1f, true);
             SetGroup(hudGroup, 0f, false);
             SetModelsVisible(false);
@@ -85,6 +116,68 @@ namespace AdventureGame.UI
 
             Cursor.visible = true;
             if (startButton != null) startButton.Select();
+        }
+
+        private void Update()
+        {
+            if (!Input.GetKeyDown(pauseKey)) return;
+
+            if (IsPaused)
+            {
+                Resume();
+            }
+            else if (CanPause())
+            {
+                Pause();
+            }
+        }
+
+        // Diyalog açıkken ESC diyaloğu kapatır; kapatan ESC basışı aynı anda menüyü açmasın diye kontrol edilir
+        private bool CanPause()
+        {
+            bool isEnding = endSequence != null && endSequence.HasStarted;
+            return isGameplayActive && !isEnding && !isDialogueOpen && Time.frameCount != dialogueClosedFrame;
+        }
+
+        private void Pause()
+        {
+            IsPaused = true;
+            Time.timeScale = 0f;
+            if (player != null) player.SetControlEnabled(false);
+
+            if (startButtonLabel != null) startButtonLabel.text = resumeLabel;
+            if (playTimeText != null)
+            {
+                int totalSeconds = Mathf.FloorToInt(Time.time - GameplayStartTime);
+                playTimeText.text = $"Oyun süresi {totalSeconds / 60:00}:{totalSeconds % 60:00}";
+                playTimeText.gameObject.SetActive(true);
+            }
+
+            SetGroup(hudGroup, 0f, false);
+            SetGroup(menuGroup, 1f, true);
+            if (startButton != null) startButton.Select();
+        }
+
+        private void Resume()
+        {
+            IsPaused = false;
+            Time.timeScale = 1f;
+            if (player != null) player.SetControlEnabled(true);
+
+            SetGroup(menuGroup, 0f, false);
+            SetGroup(hudGroup, 1f, false);
+        }
+
+        private void OnStartButtonClicked()
+        {
+            if (IsPaused) Resume();
+            else StartGame();
+        }
+
+        private void HandleDialogueStateChanged(bool isOpen)
+        {
+            isDialogueOpen = isOpen;
+            if (!isOpen) dialogueClosedFrame = Time.frameCount;
         }
 
         public void StartGame()
@@ -113,6 +206,7 @@ namespace AdventureGame.UI
             yield return new WaitForSeconds(spawnDuration);
             if (player != null) player.SetControlEnabled(true);
             GameplayStartTime = Time.time;
+            isGameplayActive = true;
             yield return Fade(hudGroup, 1f, fadeDuration);
         }
 
