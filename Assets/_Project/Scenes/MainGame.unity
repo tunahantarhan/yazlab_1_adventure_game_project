@@ -1997,6 +1997,7 @@ GameObject:
   - component: {fileID: 125884182}
   - component: {fileID: 125884184}
   - component: {fileID: 125884185}
+  - component: {fileID: 125884186}
   m_Layer: 0
   m_Name: Companion
   m_TagString: Untagged
@@ -2185,6 +2186,34 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AdventureGame.Animation.CharacterAnimator
   animator: {fileID: 0}
   speedDampTime: 0.1
+--- !u!114 &125884186
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 125884177}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d97ec96a45b14270927f0a78b42a8f1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AdventureGame.Audio.FootstepAudio
+  footsteps:
+    clips:
+    - {fileID: 8300000, guid: e871ceaa37ba64f5783b02c0ecdc023d, type: 3}
+    - {fileID: 8300000, guid: ea37dffb059dc49498a9ee5f5bcfb5b7, type: 3}
+    - {fileID: 8300000, guid: 82657c938cee346018e73d1655de7c79, type: 3}
+    - {fileID: 8300000, guid: 628998bc82a564c4db506b0d5dfff132, type: 3}
+    - {fileID: 8300000, guid: 3652e79f51f6145ecacdb04f5bcb8dbd, type: 3}
+    - {fileID: 8300000, guid: 9bd01a31da113455ab3dcf6526238111, type: 3}
+    - {fileID: 8300000, guid: f52aedd837c99446e9a798618d61ac0c, type: 3}
+    - {fileID: 8300000, guid: 6cb4ecfb898bf4effbc26c977671c68b, type: 3}
+    - {fileID: 8300000, guid: 7422e89379c0c483d8d177f26d07b390, type: 3}
+    - {fileID: 8300000, guid: 22e53abff4ba547a29b865ae17af8b01, type: 3}
+    volume: 0.35
+    pitchVariation: 0.1
+  strideLength: 1.6
+  teleportThreshold: 2
 --- !u!1 &126626858
 GameObject:
   m_ObjectHideFlags: 0
@@ -6458,6 +6487,16 @@ MonoBehaviour:
   hingeLocalOffset: {x: 0, y: 0, z: 0}
   swingAngle: -75
   openOffset: {x: 0, y: 4, z: 0}
+  openSound:
+    clips:
+    - {fileID: 8300000, guid: 24dfe24cb4d5b4c62a664961f1b8b08b, type: 3}
+    volume: 1
+    pitchVariation: 0.08
+  creakSound:
+    clips:
+    - {fileID: 8300000, guid: 7ed632e03ce614bd8b362da532025d82, type: 3}
+    volume: 1
+    pitchVariation: 0.08
 --- !u!208 &321717354
 NavMeshObstacle:
   m_ObjectHideFlags: 0
@@ -6726,7 +6765,8 @@ Transform:
   m_LocalPosition: {x: 4.69, y: 7.47, z: -12.75}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 1660983380}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 35.782, y: -37.337, z: -3.644}
 --- !u!114 &330585547
@@ -7074,6 +7114,16 @@ MonoBehaviour:
   hingeLocalOffset: {x: 0, y: 0, z: 0}
   swingAngle: -90
   openOffset: {x: 0, y: 4, z: 0}
+  openSound:
+    clips:
+    - {fileID: 8300000, guid: 24dfe24cb4d5b4c62a664961f1b8b08b, type: 3}
+    volume: 1
+    pitchVariation: 0.08
+  creakSound:
+    clips:
+    - {fileID: 8300000, guid: 7ed632e03ce614bd8b362da532025d82, type: 3}
+    volume: 1
+    pitchVariation: 0.08
 --- !u!208 &338686217
 NavMeshObstacle:
   m_ObjectHideFlags: 0
@@ -8711,6 +8761,7 @@ GameObject:
   - component: {fileID: 416017122}
   - component: {fileID: 416017123}
   - component: {fileID: 416017124}
+  - component: {fileID: 416017125}
   m_Layer: 0
   m_Name: Player
   m_TagString: Player
@@ -8902,6 +8953,34 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AdventureGame.Player.PlayerInteractor
   interactKey: 101
+--- !u!114 &416017125
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 416017115}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d97ec96a45b14270927f0a78b42a8f1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AdventureGame.Audio.FootstepAudio
+  footsteps:
+    clips:
+    - {fileID: 8300000, guid: e871ceaa37ba64f5783b02c0ecdc023d, type: 3}
+    - {fileID: 8300000, guid: ea37dffb059dc49498a9ee5f5bcfb5b7, type: 3}
+    - {fileID: 8300000, guid: 82657c938cee346018e73d1655de7c79, type: 3}
+    - {fileID: 8300000, guid: 628998bc82a564c4db506b0d5dfff132, type: 3}
+    - {fileID: 8300000, guid: 3652e79f51f6145ecacdb04f5bcb8dbd, type: 3}
+    - {fileID: 8300000, guid: 9bd01a31da113455ab3dcf6526238111, type: 3}
+    - {fileID: 8300000, guid: f52aedd837c99446e9a798618d61ac0c, type: 3}
+    - {fileID: 8300000, guid: 6cb4ecfb898bf4effbc26c977671c68b, type: 3}
+    - {fileID: 8300000, guid: 7422e89379c0c483d8d177f26d07b390, type: 3}
+    - {fileID: 8300000, guid: 22e53abff4ba547a29b865ae17af8b01, type: 3}
+    volume: 0.35
+    pitchVariation: 0.1
+  strideLength: 1.6
+  teleportThreshold: 2
 --- !u!1 &421838252
 GameObject:
   m_ObjectHideFlags: 0
@@ -9911,6 +9990,7 @@ GameObject:
   - component: {fileID: 482487337}
   - component: {fileID: 482487336}
   - component: {fileID: 482487335}
+  - component: {fileID: 482487339}
   m_Layer: 5
   m_Name: StartButton
   m_TagString: Untagged
@@ -10040,6 +10120,28 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 482487333}
   m_CullTransparentMesh: 1
+--- !u!114 &482487339
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 482487333}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c61457a8caf244a5387719fdd1eb5c71, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AdventureGame.Audio.UIButtonSound
+  hoverSound:
+    clips:
+    - {fileID: 8300000, guid: 9b3805e8403354a8f8bc5211a4d3b4e8, type: 3}
+    volume: 0.4
+    pitchVariation: 0.05
+  clickSound:
+    clips:
+    - {fileID: 8300000, guid: fc49a263476d8443cb60af77f2c2df1e, type: 3}
+    volume: 0.6
+    pitchVariation: 0.03
 --- !u!1 &487907743
 GameObject:
   m_ObjectHideFlags: 0
@@ -10053,6 +10155,7 @@ GameObject:
   - component: {fileID: 487907747}
   - component: {fileID: 487907746}
   - component: {fileID: 487907745}
+  - component: {fileID: 487907749}
   m_Layer: 5
   m_Name: QuitButton
   m_TagString: Untagged
@@ -10182,6 +10285,28 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 487907743}
   m_CullTransparentMesh: 1
+--- !u!114 &487907749
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 487907743}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c61457a8caf244a5387719fdd1eb5c71, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AdventureGame.Audio.UIButtonSound
+  hoverSound:
+    clips:
+    - {fileID: 8300000, guid: 9b3805e8403354a8f8bc5211a4d3b4e8, type: 3}
+    volume: 0.4
+    pitchVariation: 0.05
+  clickSound:
+    clips:
+    - {fileID: 8300000, guid: fc49a263476d8443cb60af77f2c2df1e, type: 3}
+    volume: 0.6
+    pitchVariation: 0.03
 --- !u!1001 &488054205
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -10702,6 +10827,56 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -5515783359193845756, guid: 0429ecef22cda494e9fa9c24d0408e61, type: 3}
   m_PrefabInstance: {fileID: 1896486662}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &539428973
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 539428975}
+  - component: {fileID: 539428974}
+  m_Layer: 0
+  m_Name: TorchFlicker
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &539428974
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 539428973}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2124a0b1352004cc39d4241d93a83cd2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AdventureGame.Core.TorchFlicker
+  affectWholeScene: 1
+  excludedLights: []
+  intensityVariation: 0.15
+  rangeVariation: 0.08
+  flickerSpeed: 2.5
+  positionJitter: 0.03
+--- !u!4 &539428975
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 539428973}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 1236.0625, y: 0.00004, z: 7843.955}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &560453416
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -13770,6 +13945,12 @@ MonoBehaviour:
   handle: {fileID: 1362170170}
   pulledRotation: {x: 45, y: 0, z: 0}
   pullDuration: 0.4
+  pullSound:
+    clips:
+    - {fileID: 8300000, guid: f5a39424fc4af48af95d87bf1070b185, type: 3}
+    - {fileID: 8300000, guid: c724c3fbb322f4fe589df59bdf19fdb3, type: 3}
+    volume: 1
+    pitchVariation: 0.08
 --- !u!114 &698552488
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -14659,6 +14840,7 @@ GameObject:
   - component: {fileID: 739812236}
   - component: {fileID: 739812235}
   - component: {fileID: 739812234}
+  - component: {fileID: 739812238}
   m_Layer: 5
   m_Name: QuitButton
   m_TagString: Untagged
@@ -14788,6 +14970,28 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 739812232}
   m_CullTransparentMesh: 1
+--- !u!114 &739812238
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 739812232}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c61457a8caf244a5387719fdd1eb5c71, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AdventureGame.Audio.UIButtonSound
+  hoverSound:
+    clips:
+    - {fileID: 8300000, guid: 9b3805e8403354a8f8bc5211a4d3b4e8, type: 3}
+    volume: 0.4
+    pitchVariation: 0.05
+  clickSound:
+    clips:
+    - {fileID: 8300000, guid: fc49a263476d8443cb60af77f2c2df1e, type: 3}
+    volume: 0.6
+    pitchVariation: 0.03
 --- !u!1 &740164353
 GameObject:
   m_ObjectHideFlags: 0
@@ -19729,6 +19933,143 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!1 &997270735
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 997270736}
+  - component: {fileID: 997270738}
+  - component: {fileID: 997270737}
+  m_Layer: 5
+  m_Name: PlayTime
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &997270736
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 997270735}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1953526837}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 1}
+  m_AnchorMax: {x: 0, y: 1}
+  m_AnchoredPosition: {x: -32, y: -846}
+  m_SizeDelta: {x: 800, y: 50}
+  m_Pivot: {x: 0, y: 1}
+--- !u!114 &997270737
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 997270735}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4688fdb7df04437aeb418b961361dc5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.TextMeshPro::TMPro.TextMeshProUGUI
+  m_Material: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_RaycastTarget: 1
+  m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
+  m_Maskable: 1
+  m_OnCullStateChanged:
+    m_PersistentCalls:
+      m_Calls: []
+  m_text: "Oyun S\xFCresi: 00:00"
+  m_isRightToLeft: 0
+  m_fontAsset: {fileID: 11400000, guid: 76f32fbe0916447fbb68969d35f7f2f8, type: 2}
+  m_sharedMaterial: {fileID: 3252646477370964058, guid: 76f32fbe0916447fbb68969d35f7f2f8, type: 2}
+  m_fontSharedMaterials: []
+  m_fontMaterial: {fileID: 0}
+  m_fontMaterials: []
+  m_fontColor32:
+    serializedVersion: 2
+    rgba: 4288196024
+  m_fontColor: {r: 0.72156864, g: 0.6784314, b: 0.59607846, a: 1}
+  m_enableVertexGradient: 0
+  m_colorMode: 3
+  m_fontColorGradient:
+    topLeft: {r: 1, g: 1, b: 1, a: 1}
+    topRight: {r: 1, g: 1, b: 1, a: 1}
+    bottomLeft: {r: 1, g: 1, b: 1, a: 1}
+    bottomRight: {r: 1, g: 1, b: 1, a: 1}
+  m_fontColorGradientPreset: {fileID: 0}
+  m_spriteAsset: {fileID: 0}
+  m_tintAllSprites: 0
+  m_StyleSheet: {fileID: 0}
+  m_TextStyleHashCode: -1183493901
+  m_overrideHtmlColors: 0
+  m_faceColor:
+    serializedVersion: 2
+    rgba: 4294967295
+  m_fontSize: 26
+  m_fontSizeBase: 26
+  m_fontWeight: 400
+  m_enableAutoSizing: 0
+  m_fontSizeMin: 18
+  m_fontSizeMax: 72
+  m_fontStyle: 0
+  m_HorizontalAlignment: 2
+  m_VerticalAlignment: 256
+  m_textAlignment: 65535
+  m_characterSpacing: 0
+  m_characterHorizontalScale: 1
+  m_wordSpacing: 0
+  m_lineSpacing: 0
+  m_lineSpacingMax: 0
+  m_paragraphSpacing: 0
+  m_charWidthMaxAdj: 0
+  m_TextWrappingMode: 1
+  m_wordWrappingRatios: 0.4
+  m_overflowMode: 0
+  m_linkedTextComponent: {fileID: 0}
+  parentLinkedComponent: {fileID: 0}
+  m_enableKerning: 0
+  m_ActiveFontFeatures: 6e72656b
+  m_enableExtraPadding: 0
+  checkPaddingRequired: 0
+  m_isRichText: 1
+  m_EmojiFallbackSupport: 1
+  m_parseCtrlCharacters: 1
+  m_isOrthographic: 1
+  m_isCullingEnabled: 0
+  m_horizontalMapping: 0
+  m_verticalMapping: 0
+  m_uvLineOffset: 0
+  m_geometrySortingOrder: 0
+  m_IsTextObjectScaleStatic: 0
+  m_VertexBufferAutoSizeReduction: 0
+  m_useMaxVisibleDescender: 1
+  m_pageToDisplay: 1
+  m_margin: {x: 0, y: 0, z: 0, w: 0}
+  m_isUsingLegacyAnimationComponent: 0
+  m_isVolumetricText: 0
+  m_hasFontAssetChanged: 0
+  m_baseMaterial: {fileID: 0}
+  m_maskOffset: {x: 0, y: 0, z: 0, w: 0}
+--- !u!222 &997270738
+CanvasRenderer:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 997270735}
+  m_CullTransparentMesh: 1
 --- !u!1 &998961007
 GameObject:
   m_ObjectHideFlags: 0
@@ -20893,6 +21234,7 @@ GameObject:
   - component: {fileID: 1105309967}
   - component: {fileID: 1105309966}
   - component: {fileID: 1105309965}
+  - component: {fileID: 1105309969}
   m_Layer: 5
   m_Name: MainMenuButton
   m_TagString: Untagged
@@ -21022,6 +21364,28 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1105309963}
   m_CullTransparentMesh: 1
+--- !u!114 &1105309969
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1105309963}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c61457a8caf244a5387719fdd1eb5c71, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AdventureGame.Audio.UIButtonSound
+  hoverSound:
+    clips:
+    - {fileID: 8300000, guid: 9b3805e8403354a8f8bc5211a4d3b4e8, type: 3}
+    volume: 0.4
+    pitchVariation: 0.05
+  clickSound:
+    clips:
+    - {fileID: 8300000, guid: fc49a263476d8443cb60af77f2c2df1e, type: 3}
+    volume: 0.6
+    pitchVariation: 0.03
 --- !u!1001 &1107029642
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -25048,6 +25412,7 @@ GameObject:
   - component: {fileID: 1336529393}
   - component: {fileID: 1336529392}
   - component: {fileID: 1336529391}
+  - component: {fileID: 1336529395}
   m_Layer: 5
   m_Name: RestartButton
   m_TagString: Untagged
@@ -25177,6 +25542,28 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1336529389}
   m_CullTransparentMesh: 1
+--- !u!114 &1336529395
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1336529389}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c61457a8caf244a5387719fdd1eb5c71, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AdventureGame.Audio.UIButtonSound
+  hoverSound:
+    clips:
+    - {fileID: 8300000, guid: 9b3805e8403354a8f8bc5211a4d3b4e8, type: 3}
+    volume: 0.4
+    pitchVariation: 0.05
+  clickSound:
+    clips:
+    - {fileID: 8300000, guid: fc49a263476d8443cb60af77f2c2df1e, type: 3}
+    volume: 0.6
+    pitchVariation: 0.03
 --- !u!1 &1338072317
 GameObject:
   m_ObjectHideFlags: 0
@@ -29019,6 +29406,135 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 0e7903d1f997cc645bad3674ffab5d1b, type: 3}
   m_PrefabInstance: {fileID: 1660517887}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1660983379
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1660983380}
+  - component: {fileID: 1660983381}
+  m_Layer: 0
+  m_Name: AmbienceSound
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1660983380
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1660983379}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 330585546}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!82 &1660983381
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1660983379}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 8300000, guid: 3d3d059bb234740df980baebe92fcada, type: 3}
+  m_PlayOnAwake: 1
+  m_Volume: 0.3
+  m_Pitch: 1
+  Loop: 1
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 1
+  MinDistance: 1
+  MaxDistance: 500
+  Pan2D: 0
+  rolloffMode: 0
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!4 &1663180814 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 8056542487826966525, guid: c65625e040ac42e46ba4222b69c41558, type: 3}
@@ -29566,8 +30082,26 @@ MonoBehaviour:
   - attitude: CONVINCED
     sprite: {fileID: 21300000, guid: dc53dd517b0f748ae82d95fba4a6b0ae, type: 3}
   audioSource: {fileID: 1674641271}
-  voiceBlipClip: {fileID: 0}
+  voiceBlipClip: {fileID: 8300000, guid: fe18b9883ae674784a63ff2ff99bba49, type: 3}
   typingSpeed: 0.035
+  blipEveryNChars: 2
+  guardBlipPitch: 0.8
+  playerBlipPitch: 1.15
+  openSound:
+    clips:
+    - {fileID: 8300000, guid: 5012302974f9c4b4db1234a0a834580b, type: 3}
+    volume: 0.6
+    pitchVariation: 0.08
+  closeSound:
+    clips:
+    - {fileID: 8300000, guid: 4fb156d8be12e4f9da6b0142c113b104, type: 3}
+    volume: 0.6
+    pitchVariation: 0.08
+  sendSound:
+    clips:
+    - {fileID: 8300000, guid: 32cbced3a6beb4ac7a682f9b8de3322d, type: 3}
+    volume: 0.5
+    pitchVariation: 0.08
 --- !u!114 &1674641273
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -33428,6 +33962,7 @@ RectTransform:
   m_Children:
   - {fileID: 1614768271}
   - {fileID: 1222326891}
+  - {fileID: 997270736}
   - {fileID: 2121868967}
   - {fileID: 1414159888}
   - {fileID: 1637782723}
@@ -33479,6 +34014,11 @@ MonoBehaviour:
   spawnStagger: 0.25
   spawnDuration: 1
   fadeDuration: 0.3
+  pauseKey: 27
+  startButtonLabel: {fileID: 1266036785}
+  resumeLabel: DEVAM ET
+  playTimeText: {fileID: 997270737}
+  endSequence: {fileID: 1596921105}
 --- !u!1 &1961761141 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 0429ecef22cda494e9fa9c24d0408e61, type: 3}
@@ -37459,3 +37999,4 @@ SceneRoots:
   - {fileID: 1321026401}
   - {fileID: 2144278547}
   - {fileID: 434329998}
+  - {fileID: 539428975}
